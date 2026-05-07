@@ -1,4 +1,5 @@
 from pathlib import Path
+from datetime import timedelta
 import os
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -44,7 +45,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-AUTH_USER_MODEL = "iam.User"
+# AUTH_USER_MODEL = "iam.User"  # uncommented once Task 3 defines the User model
 
 TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -90,7 +91,6 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
 }
 
-from datetime import timedelta
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(hours=8),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
