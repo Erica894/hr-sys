@@ -1,6 +1,7 @@
 from django.urls import path
 from apps.reward_cycle.views import (
-    RewardCycleListView, AllocationListView, SaveProposalsView, SubmitForApprovalView,
+    RewardCycleListView, AllocationListView, SaveProposalsView,
+    SubmitForApprovalView, ExecuteView,
 )
 
 urlpatterns = [
@@ -8,4 +9,5 @@ urlpatterns = [
     path("reward-cycle/<int:cycle_id>/allocation/", AllocationListView.as_view()),
     path("reward-cycle/<int:cycle_id>/proposals/", SaveProposalsView.as_view()),
     path("reward-cycle/<int:cycle_id>/submit/", SubmitForApprovalView.as_view()),
+    path("reward-cycle/<int:cycle_id>/execute/", ExecuteView.as_view()),
 ]

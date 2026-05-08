@@ -12,6 +12,8 @@ from apps.reward_cycle.serializers import (
 )
 from apps.approval.services import create_instance_from_default_chain
 from apps.audit.services import log_action
+import pyotp
+from apps.reward_cycle.execute import execute_reward_cycle
 
 
 class RewardCycleListView(generics.ListAPIView):
@@ -79,3 +81,21 @@ class SubmitForApprovalView(APIView):
         log_action("SUBMIT", request.user, "RewardCycle", cycle.id,
                    {}, {"instance_id": instance.id, "over_budget": False})
         return Response({"instance_id": instance.id, "over_budget_flag": False})
+
+
+class ExecuteView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, cycle_id):
+        code = request.headers.get("X-MFA-Code") or request.data.get("mfa_code")
+        user = request.user
+        if not code or not user.totp_secret or not user.mfa_enabled:
+            return Response({"detail": "MFA required"}, status=403)
+        if not pyotp.TOTP(user.totp_secret).verify(code, valid_window=1):
+            return Response({"detail": "invalid MFA code"}, status=403)
+        cycle = get_object_or_404(RewardCycle, pk=cycle_id)
+        if cycle.status != "APPROVED_PENDING_EXECUTE":
+            return Response({"detail": "cycle not approved"}, status=400)
+        execute_reward_cycle(cycle, user)
+        cycle.refresh_from_db()
+        return Response({"status": cycle.status, "executed_at": cycle.executed_at})

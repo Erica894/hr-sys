@@ -18,6 +18,7 @@ class RewardCycle(models.Model):
     total_comp_config = models.JSONField(default=dict)
     created_by_id = models.BigIntegerField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    executed_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "reward_cycle"
