@@ -6,8 +6,5 @@ urlpatterns = [
     path("api/auth/", include("apps.iam.urls")),
     path("api/", include("apps.reward_cycle.urls")),
     path("api/", include("apps.approval.urls")),
-    # Task 4+ will uncomment these as the apps grow their urls.py
-    # path("api/", include("apps.hr_master.urls")),
-    # path("api/", include("apps.approval.urls")),
-    # path("api/", include("apps.lti.urls")),
+    path("api/", include("apps.lti.urls")),
 ]
