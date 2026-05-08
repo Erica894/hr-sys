@@ -10,6 +10,8 @@ from apps.reward_cycle.services import get_allocation_rows, generate_proposals
 from apps.reward_cycle.serializers import (
     AllocationRowSerializer, SaveProposalsItemSerializer, RewardCycleSerializer,
 )
+from apps.approval.services import create_instance_from_default_chain
+from apps.audit.services import log_action
 
 
 class RewardCycleListView(generics.ListAPIView):
@@ -58,3 +60,22 @@ class SaveProposalsView(APIView):
             cycle.status = "ALLOCATING"
             cycle.save(update_fields=["status"])
         return Response({"ok": True})
+
+
+class SubmitForApprovalView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    @transaction.atomic
+    def post(self, request, cycle_id):
+        cycle = get_object_or_404(RewardCycle.objects.select_for_update(), pk=cycle_id)
+        if cycle.status != "ALLOCATING":
+            return Response({"detail": "cycle not in ALLOCATING"}, status=400)
+        instance = create_instance_from_default_chain(
+            scenario="REWARD_CYCLE", subject_type="REWARD_CYCLE",
+            subject_id=cycle.id, over_budget_flag=False,
+        )
+        cycle.status = "APPROVING"
+        cycle.save(update_fields=["status"])
+        log_action("SUBMIT", request.user, "RewardCycle", cycle.id,
+                   {}, {"instance_id": instance.id, "over_budget": False})
+        return Response({"instance_id": instance.id, "over_budget_flag": False})

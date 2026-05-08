@@ -2,6 +2,17 @@ from django.db import transaction
 from .models import ApprovalChainTemplate, ApprovalInstance, ApprovalStep
 
 
+def create_instance_from_default_chain(*, scenario, subject_type, subject_id,
+                                        over_budget_flag=False):
+    tpl = ApprovalChainTemplate.objects.get(
+        scenario=scenario, is_default=True, status="ACTIVE",
+    )
+    return ApprovalInstance.objects.create(
+        template=tpl, subject_type=subject_type, subject_id=subject_id,
+        current_node=0, status="RUNNING", over_budget_flag=over_budget_flag,
+    )
+
+
 def get_default_chain(scenario: str):
     return ApprovalChainTemplate.objects.filter(
         scenario=scenario, is_default=True, status="ACTIVE"
