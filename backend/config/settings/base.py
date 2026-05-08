@@ -45,7 +45,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "config.urls"
-# AUTH_USER_MODEL = "iam.User"  # uncommented once Task 3 defines the User model
+AUTH_USER_MODEL = "iam.User"
 
 TEMPLATES = [{
     "BACKEND": "django.template.backends.django.DjangoTemplates",
