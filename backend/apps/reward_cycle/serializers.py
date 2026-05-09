@@ -4,38 +4,82 @@ from apps.reward_cycle.models import RewardCycle
 
 
 class RewardCycleSerializer(serializers.ModelSerializer):
+    budget_year = serializers.SerializerMethodField()
+
     class Meta:
         model = RewardCycle
-        fields = ["id", "code", "name", "status", "period", "created_at"]
+        fields = ["id", "code", "name", "status", "period", "budget_year", "created_at"]
+
+    def get_budget_year(self, obj):
+        scope = obj.scope or {}
+        if "budget_year" in scope:
+            return scope.get("budget_year")
+        try:
+            return int(str(obj.period)[:4])
+        except (ValueError, TypeError):
+            return None
 
 
 class AllocationRowSerializer(serializers.Serializer):
+    # 基础信息
     employee_id = serializers.IntegerField(source="employee.id")
     employee_no = serializers.CharField(source="employee.employee_no")
     name_cn = serializers.CharField(source="employee.name_cn")
     dept_name = serializers.CharField(source="employee.dept_name")
-    job_level_current = serializers.CharField(source="employee.job_level_current")
-    job_level_promoted = serializers.CharField(source="employee.job_level_promoted", allow_null=True)
+    center_name = serializers.CharField(source="employee.center_name", allow_blank=True)
+    job_level_current = serializers.CharField(source="employee.job_level_current", allow_blank=True)
+    job_level_promoted = serializers.CharField(source="employee.job_level_promoted", allow_blank=True, allow_null=True)
+    position_promoted = serializers.CharField(source="employee.position_promoted", allow_blank=True)
+    position_current = serializers.CharField(source="employee.position_current", allow_blank=True)
+    employee_category_1 = serializers.CharField(source="employee.employee_category_1", allow_blank=True)
+    employee_category_2 = serializers.CharField(source="employee.employee_category_2", allow_blank=True)
+    hire_date = serializers.DateField(source="employee.hire_date", allow_null=True)
+    pay_country_region = serializers.CharField(source="employee.pay_country_region", allow_blank=True)
+    pay_currency = serializers.CharField(source="employee.pay_currency", allow_blank=True)
+
+    # 绩效（Y-1）
+    perf_y_minus_1_h1 = serializers.SerializerMethodField()
+    perf_y_minus_1_h2 = serializers.SerializerMethodField()
+
+    # 参与标志
     is_promoted = serializers.BooleanField(source="employee.is_promoted")
+    promotion_category = serializers.CharField(source="employee.promotion_category", allow_blank=True)
     participates_annual = serializers.BooleanField(source="employee.participates_annual_adjustment")
+
+    # 当前月薪
     current_monthly_salary = serializers.SerializerMethodField()
+
+    # 调薪分配
     annual_suggested_pct = serializers.SerializerMethodField()
     annual_manager_delta_pct = serializers.SerializerMethodField()
     annual_final_pct = serializers.SerializerMethodField()
     promotion_adjustment_pct = serializers.SerializerMethodField()
     total_adjustment_pct = serializers.SerializerMethodField()
     proposed_monthly_salary = serializers.SerializerMethodField()
+
+    # RSU
     granted_ads = serializers.SerializerMethodField()
     unit_price_at_grant = serializers.SerializerMethodField()
+
+    # 总包
     annual_base = serializers.SerializerMethodField()
     annual_rsu_value = serializers.SerializerMethodField()
     total_comp = serializers.SerializerMethodField()
 
     def _p(self, obj):
-        return obj["proposal"]
+        return obj.get("proposal")
 
     def _g(self, obj):
-        return obj["grant"]
+        return obj.get("grant")
+
+    def _perf(self, obj):
+        return obj.get("perf") or {}
+
+    def get_perf_y_minus_1_h1(self, o):
+        return self._perf(o).get("y_minus_1_h1")
+
+    def get_perf_y_minus_1_h2(self, o):
+        return self._perf(o).get("y_minus_1_h2")
 
     def get_current_monthly_salary(self, o):
         p = self._p(o)
