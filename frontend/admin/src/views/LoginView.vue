@@ -32,11 +32,17 @@ const pw = ref("")
 const code = ref("")
 const err = ref("")
 
+function landingFor() {
+  if (store.hasRole("HR_ADMIN")) return "/admin/plans/adjustment"
+  if (store.hasRole("DEPT_HEAD")) return "/allocation"
+  return "/me/compensation"
+}
+
 async function doLogin() {
   err.value = ""
   try {
     await store.login(email.value, pw.value)
-    if (!store.needsMfa) router.push("/allocation")
+    if (!store.needsMfa) router.push(landingFor())
   } catch (e: any) {
     err.value = e.response?.data?.detail || "Login failed"
   }
@@ -46,7 +52,7 @@ async function doMfa() {
   err.value = ""
   try {
     await store.verifyMfa(code.value)
-    router.push("/allocation")
+    router.push(landingFor())
   } catch (e: any) {
     err.value = e.response?.data?.detail || "Verification failed"
   }
