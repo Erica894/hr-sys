@@ -33,7 +33,7 @@ class AdjustmentBudgetCell(models.Model):
     employee_category_1 = models.CharField(max_length=16, choices=CAT1)
     department = models.ForeignKey(
         "iam.OrgUnit", null=True, blank=True, on_delete=models.PROTECT,
-        related_name="adjustment_budget_cells",
+        related_name="dept_budget_cells",
         help_text="NULL = 公司总预算层；非 NULL = 该部门分配额",
     )
     budget_amount_cny = models.DecimalField(max_digits=16, decimal_places=2, default=0)
