@@ -25,12 +25,7 @@ CASH_FIELD_GROUP = [
 ]
 
 # 部门负责人字段集 = 现金 + RSU + 部门管理字段
-DEPT_HEAD_EXTRA = [
-    "rsu_grant_amount",
-    "rsu_vesting_schedule",
-    "rsu_unvested_value",
-    "rsu_strike_price",
-    "rsu_grant_date",
+DEPT_HEAD_EXTRA = list(RSU_FIELD_GROUP) + [
     "promotion_category",
     "department_budget_total",
     "department_budget_reserve",
