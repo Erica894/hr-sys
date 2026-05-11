@@ -102,3 +102,50 @@ class ManagementScopeMember(models.Model):
     class Meta:
         db_table = "iam_management_scope_member"
         unique_together = [("scope", "org_unit")]
+
+
+class FieldPermissionGrant(models.Model):
+    """部门负责人 → 中心负责人 的字段级权限扩展授予。
+
+    硬约束：grant 只能扩字段，永远不能扩数据范围（grantee 永远只看自己中心）。
+    """
+    STATUS_CHOICES = [("ACTIVE", "Active"), ("REVOKED", "Revoked")]
+
+    granter = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="grants_issued",
+        help_text="部门负责人 user_id",
+    )
+    grantee = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="grants_received",
+        help_text="中心负责人 user_id",
+    )
+    center = models.ForeignKey(
+        OrgUnit, on_delete=models.PROTECT, related_name="field_grants",
+        help_text="被授权范围限定为此中心",
+    )
+    extra_fields = models.JSONField(default=list, help_text="必须是 RSU_FIELD_GROUP 子集")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="ACTIVE")
+    created_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "iam_field_permission_grant"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["grantee", "center"],
+                condition=models.Q(status="ACTIVE"),
+                name="uniq_active_grant_per_grantee_center",
+            ),
+        ]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        from apps.iam.constants import RSU_FIELD_GROUP
+
+        if not isinstance(self.extra_fields, list):
+            raise ValidationError({"extra_fields": "must be a list"})
+        invalid = set(self.extra_fields) - set(RSU_FIELD_GROUP)
+        if invalid:
+            raise ValidationError({"extra_fields": f"fields outside RSU whitelist: {invalid}"})
+        if self.center.type != "CENTER":
+            raise ValidationError({"center": "grant scope must be a CENTER unit"})
