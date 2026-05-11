@@ -28,16 +28,20 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Role(models.Model):
     ROLE_CHOICES = [
-        ("EMPLOYEE", "员工"),
+        ("HR_ADMIN", "薪酬 HR"),
         ("DEPT_HEAD", "部门负责人"),
         ("CENTER_HEAD", "中心负责人"),
-        ("HRBP", "HRBP"),
-        ("HR_ADMIN", "薪酬 HR"),
-        ("EXEC", "高管"),
-        ("SYS_ADMIN", "系统管理员"),
+        ("GROUP_LEAD", "组长"),
+        ("EMPLOYEE", "员工"),
+        ("FINANCE", "财务"),
+        ("AUDITOR", "审计员"),
+        ("HRBP", "HRBP"),         # 兼容已存在的 fixture/测试
+        ("EXEC", "高管"),          # 兼容
+        ("SYS_ADMIN", "系统管理员"),  # 兼容
     ]
     code = models.CharField(max_length=32, unique=True, choices=ROLE_CHOICES)
     name = models.CharField(max_length=64)
+    base_field_set = models.JSONField(default=list, blank=True)
 
     class Meta:
         db_table = "iam_role"

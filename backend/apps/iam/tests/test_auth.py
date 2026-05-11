@@ -11,7 +11,7 @@ def client():
 @pytest.fixture
 def hr_user(db):
     user = User.objects.create_user(email="hr@example.com", employee_no="HR001", password="pass123")
-    role = Role.objects.create(code="HR_ADMIN", name="薪酬HR")
+    role, _ = Role.objects.get_or_create(code="HR_ADMIN", defaults={"name": "薪酬HR"})
     UserRole.objects.create(user=user, role=role, scope_type="GLOBAL")
     return user
 
