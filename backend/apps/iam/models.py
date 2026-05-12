@@ -229,3 +229,31 @@ class MfaChallenge(models.Model):
     def is_expired(self) -> bool:
         from django.utils import timezone
         return timezone.now() >= self.expires_at
+
+
+class SessionRevocation(models.Model):
+    """JWT 黑名单：登出 / 强制踢人 / MFA 失败连锁 / 角色变更等场景写入。
+
+    业务层在 JWT 校验后查 `is_revoked(jti)`；过了 expires_at 的记录可被定时清理。
+    expires_at 一般等于 token 的自然过期时间，过期后查询自动认为未撤销。
+    """
+    REASON_CHOICES = [
+        ("LOGOUT", "用户登出"),
+        ("ADMIN_KICK", "管理员强制下线"),
+        ("MFA_FAIL", "MFA 连续失败"),
+        ("ROLE_CHANGE", "角色变更"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="revocations")
+    jti = models.CharField(max_length=64, unique=True, db_index=True)
+    expires_at = models.DateTimeField()
+    reason = models.CharField(max_length=16, choices=REASON_CHOICES)
+    revoked_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "iam_session_revocation"
+
+    @classmethod
+    def is_revoked(cls, jti: str) -> bool:
+        from django.utils import timezone
+        return cls.objects.filter(jti=jti, expires_at__gt=timezone.now()).exists()
