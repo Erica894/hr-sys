@@ -190,3 +190,42 @@ class OrgUnitManager(models.Model):
                 name="uniq_active_primary_per_unit",
             ),
         ]
+
+
+class MfaChallenge(models.Model):
+    """MFA 验证挑战记录。
+
+    敏感动作（登录 / 导出 / 终审 / 角色变更）发起时建一行 PENDING；
+    用户提交 TOTP 后改 VERIFIED/FAILED；超过 expires_at 视为 EXPIRED。
+    code 永远不存明文，只存哈希便于审计追溯。
+    """
+    PURPOSE_CHOICES = [
+        ("LOGIN", "登录"),
+        ("EXPORT", "导出敏感数据"),
+        ("FINAL_APPROVE", "终审审批"),
+        ("ROLE_ASSIGN", "角色变更"),
+    ]
+    STATUS_CHOICES = [
+        ("PENDING", "待验证"),
+        ("VERIFIED", "已通过"),
+        ("FAILED", "失败"),
+        ("EXPIRED", "已过期"),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="mfa_challenges")
+    purpose = models.CharField(max_length=16, choices=PURPOSE_CHOICES)
+    code_hash = models.CharField(max_length=128, blank=True, help_text="TOTP 不存明文")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="PENDING")
+    attempts = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    verified_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        db_table = "iam_mfa_challenge"
+        indexes = [models.Index(fields=["user", "status"])]
+
+    @property
+    def is_expired(self) -> bool:
+        from django.utils import timezone
+        return timezone.now() >= self.expires_at
