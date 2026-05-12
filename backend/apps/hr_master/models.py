@@ -124,3 +124,45 @@ class PositionGrade(models.Model):
     class Meta:
         db_table = "hr_position_grade"
         ordering = ["level_band__order", "order"]
+
+
+class EmployeeFreeze(models.Model):
+    """员工冻结：试用期 / 离职流转 / 法务调查 / 长休等情况下不可参与调薪/年终奖。
+
+    业务层在分配前调用 `EmployeeFreeze.has_active(emp)` 判断；end_date 为空表示
+    无限期开口冻结，需手动结束。
+    """
+    REASON_CHOICES = [
+        ("PROBATION", "试用期"),
+        ("LEAVING", "离职流转"),
+        ("LEGAL_HOLD", "法务调查"),
+        ("LONG_LEAVE", "长期休假"),
+        ("OTHER", "其他"),
+    ]
+
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="freezes"
+    )
+    reason = models.CharField(max_length=16, choices=REASON_CHOICES)
+    start_date = models.DateField()
+    end_date = models.DateField(null=True, blank=True, help_text="null 表示开口冻结")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_employee_freeze"
+        indexes = [models.Index(fields=["employee", "start_date"])]
+
+    def is_active(self, as_of=None) -> bool:
+        from datetime import date as _date
+        if as_of is None:
+            as_of = _date.today()
+        if as_of < self.start_date:
+            return False
+        if self.end_date is not None and as_of > self.end_date:
+            return False
+        return True
+
+    @classmethod
+    def has_active(cls, employee, as_of=None) -> bool:
+        return any(f.is_active(as_of) for f in cls.objects.filter(employee=employee))
