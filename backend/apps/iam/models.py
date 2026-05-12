@@ -54,12 +54,16 @@ class OrgUnit(models.Model):
         ("DEPT", "部门"),
         ("CENTER", "中心"),
         ("TEAM", "组"),
+        ("EMPLOYEE_LEAF", "员工节点"),
     ]
     parent = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="children")
     code = models.CharField(max_length=32, unique=True)
     name = models.CharField(max_length=128)
     type = models.CharField(max_length=16, choices=TYPE_CHOICES)
-    leader_user = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+")
+    leader_user = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL, related_name="+",
+        help_text="主负责人冗余字段；兼任与多负责人通过 OrgUnitManager 表达",
+    )
 
     class Meta:
         db_table = "iam_org_unit"
@@ -151,3 +155,38 @@ class FieldPermissionGrant(models.Model):
             raise ValidationError({"extra_fields": f"fields outside RSU whitelist: {invalid}"})
         if self.center.type != "CENTER":
             raise ValidationError({"center": "grant scope must be a CENTER unit"})
+
+
+class OrgUnitManager(models.Model):
+    """组织单元负责人多对多表，支持兼任。
+
+    一个 unit 可有 1 个 is_primary=True + N 个 is_primary=False（副 / 兼任）。
+    一个 manager 可同时管多个 unit（兼任）。
+    主任唯一性只在「当前生效」的记录上强制，历史记录 (effective_to 已结束) 不占位。
+    """
+    ROLE_IN_UNIT_CHOICES = [
+        ("DEPT_HEAD", "部门负责人"),
+        ("CENTER_HEAD", "中心负责人"),
+        ("GROUP_LEAD", "组长"),
+    ]
+
+    org_unit = models.ForeignKey(
+        OrgUnit, on_delete=models.CASCADE, related_name="managers"
+    )
+    manager = models.ForeignKey(
+        User, on_delete=models.PROTECT, related_name="managed_units"
+    )
+    role_in_unit = models.CharField(max_length=16, choices=ROLE_IN_UNIT_CHOICES)
+    is_primary = models.BooleanField(default=False)
+    effective_from = models.DateField()
+    effective_to = models.DateField(null=True, blank=True)
+
+    class Meta:
+        db_table = "iam_org_unit_manager"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["org_unit"],
+                condition=models.Q(is_primary=True, effective_to__isnull=True),
+                name="uniq_active_primary_per_unit",
+            ),
+        ]

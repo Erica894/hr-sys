@@ -22,6 +22,17 @@ def test_org_unit_tree():
 
 
 @pytest.mark.django_db
+def test_org_unit_5_levels_with_employee_leaf():
+    """5 级灵活组织树：COMPANY → DEPT → CENTER → TEAM → EMPLOYEE_LEAF。"""
+    company = OrgUnit.objects.create(code="HQ2", name="集团", type="COMPANY")
+    dept = OrgUnit.objects.create(code="D_R", name="研发部", type="DEPT", parent=company)
+    center = OrgUnit.objects.create(code="C_AI2", name="AI 中心", type="CENTER", parent=dept)
+    team = OrgUnit.objects.create(code="T_ALG", name="算法组", type="TEAM", parent=center)
+    leaf = OrgUnit.objects.create(code="L_ALICE", name="alice", type="EMPLOYEE_LEAF", parent=team)
+    assert leaf.parent.parent.parent.parent == company
+
+
+@pytest.mark.django_db
 def test_seven_system_roles_seeded():
     """All 7 permanent roles must exist with non-empty base_field_set."""
     expected_codes = {
