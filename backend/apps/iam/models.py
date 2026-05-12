@@ -144,6 +144,8 @@ class FieldPermissionGrant(models.Model):
 
         if not isinstance(self.extra_fields, list):
             raise ValidationError({"extra_fields": "must be a list"})
+        if not self.extra_fields:
+            raise ValidationError({"extra_fields": "must be non-empty"})
         invalid = set(self.extra_fields) - set(RSU_FIELD_GROUP)
         if invalid:
             raise ValidationError({"extra_fields": f"fields outside RSU whitelist: {invalid}"})

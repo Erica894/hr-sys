@@ -35,6 +35,18 @@ def test_grant_rejects_non_rsu_field(grant_actors):
 
 
 @pytest.mark.django_db
+def test_grant_rejects_empty_extra_fields(grant_actors):
+    """空授予无业务意义；阻止误用导致占用唯一约束位。"""
+    granter, grantee, center = grant_actors
+    g = FieldPermissionGrant(
+        granter=granter, grantee=grantee, center=center,
+        extra_fields=[],
+    )
+    with pytest.raises(ValidationError):
+        g.full_clean()
+
+
+@pytest.mark.django_db
 def test_grant_rejects_non_center_unit(grant_actors):
     granter, grantee, _ = grant_actors
     dept = OrgUnit.objects.create(code="D_BIZ", name="业务部", type="DEPT")
