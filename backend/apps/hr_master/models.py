@@ -92,3 +92,35 @@ class PerformanceRating(models.Model):
     class Meta:
         db_table = "hr_performance_rating"
         unique_together = [("employee", "period_year", "period_half")]
+
+
+class LevelBand(models.Model):
+    """职级带（P5、P6、M1、M2 ……）。
+
+    与既有 JobGrade.level/band 平面字段并存，不破坏既有数据；新业务（薪酬带、
+    晋升路径、字段集映射）走 LevelBand → PositionGrade 的层级关系。
+    """
+    code = models.CharField(max_length=16, unique=True)
+    name = models.CharField(max_length=64)
+    order = models.IntegerField(help_text="排序权重，小的在前")
+    description = models.TextField(blank=True)
+
+    class Meta:
+        db_table = "hr_level_band"
+        ordering = ["order"]
+
+
+class PositionGrade(models.Model):
+    """职位档（同一职级带内的细分档位，如 P5-A / P5-B）。"""
+    code = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=64)
+    level_band = models.ForeignKey(
+        LevelBand, on_delete=models.PROTECT, related_name="position_grades"
+    )
+    order = models.IntegerField(default=0)
+    suggested_min_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    suggested_max_salary = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    class Meta:
+        db_table = "hr_position_grade"
+        ordering = ["level_band__order", "order"]
