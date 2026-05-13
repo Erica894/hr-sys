@@ -38,6 +38,16 @@ class AdjustmentBudgetCell(models.Model):
     )
     budget_amount_cny = models.DecimalField(max_digits=16, decimal_places=2, default=0)
     allocated_amount_cny = models.DecimalField(max_digits=16, decimal_places=2, default=0)
+    distribution_rule = models.CharField(
+        max_length=16,
+        choices=[("MANUAL", "手动"), ("HEADCOUNT", "按人头"), ("SALARY_TOTAL", "按薪资基数")],
+        default="MANUAL", blank=True,
+        help_text="仅公司层 cell（department=NULL）使用，记录最近一次下发规则",
+    )
+    reclaimed_amount_cny = models.DecimalField(
+        max_digits=16, decimal_places=2, default=0,
+        help_text="EXECUTE 后回收的未用预算（仅目标层 cell）",
+    )
 
     class Meta:
         db_table = "comp_adjustment_budget_cell"
