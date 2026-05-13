@@ -18,6 +18,47 @@
       description="部分列（待归属 ADS / 薪酬区间桶 / 历年总包 / 涨幅 Δ%）所需的后端服务在 Sprint 2 实现，当前以 - 占位。"
     />
 
+    <el-collapse v-if="myBudgets.length || myLti.length" style="margin-top: 12px">
+      <el-collapse-item title="我的额度" name="budget">
+        <el-row :gutter="12">
+          <el-col v-for="b in myBudgets" :key="`adj-${b.id}`" :span="12">
+            <div class="budget-bar">
+              <span class="budget-bar__label">
+                <el-tag size="small" :type="b.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'">
+                  {{ b.target_org_unit_type }}
+                </el-tag>
+                {{ b.target_org_unit_name }} · {{ b.adjustment_type }} · {{ catLabel(b.employee_category_1) }}
+              </span>
+              <el-progress
+                :percentage="pctNum(b.allocated_amount_cny, b.budget_amount_cny)"
+                :status="barStatus(b.allocated_amount_cny, b.budget_amount_cny)"
+              />
+              <span class="budget-bar__detail">
+                {{ fmt(b.allocated_amount_cny) }} / {{ fmt(b.budget_amount_cny) }}
+              </span>
+            </div>
+          </el-col>
+          <el-col v-for="b in myLti" :key="`lti-${b.id}`" :span="12">
+            <div class="budget-bar">
+              <span class="budget-bar__label">
+                <el-tag size="small" :type="b.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'">
+                  {{ b.target_org_unit_type }}
+                </el-tag>
+                {{ b.target_org_unit_name }} · LTI · {{ catLabel(b.employee_category_1) }}
+              </span>
+              <el-progress
+                :percentage="pctNum(b.shares_used_ads, b.shares_quota_ads)"
+                :status="barStatus(b.shares_used_ads, b.shares_quota_ads)"
+              />
+              <span class="budget-bar__detail">
+                {{ fmtInt(b.shares_used_ads) }} / {{ fmtInt(b.shares_quota_ads) }} ADS
+              </span>
+            </div>
+          </el-col>
+        </el-row>
+      </el-collapse-item>
+    </el-collapse>
+
     <el-table
       :data="rows"
       border
@@ -254,6 +295,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from "vue"
+import { ElMessage } from "element-plus"
 import api from "@/api/client"
 
 const rows = ref<any[]>([])
@@ -261,12 +303,52 @@ const cycle = ref<any>(null)
 const dirty = ref(new Set<number>())
 const editable = computed(() => ["DRAFT", "ALLOCATING"].includes(cycle.value?.status))
 
+const myBudgets = ref<any[]>([])
+const myLti = ref<any[]>([])
+
+function fmt(v: any) {
+  return Number(v || 0).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+function fmtInt(v: any) {
+  return Number(v || 0).toLocaleString("zh-CN")
+}
+function catLabel(c: string) {
+  return c === "MANAGEMENT" ? "管理干部" : "员工"
+}
+function pctNum(used: any, quota: any) {
+  const u = Number(used || 0)
+  const q = Number(quota || 0)
+  if (q <= 0) return 0
+  return Math.min(100, Math.round((u / q) * 100))
+}
+function barStatus(used: any, quota: any): "success" | "warning" | "exception" | undefined {
+  const p = pctNum(used, quota)
+  if (p >= 100) return "exception"
+  if (p >= 95) return "warning"
+  return undefined
+}
+
+async function loadMyBudgets(cycleId: number) {
+  try {
+    const [a, l] = await Promise.all([
+      api.get(`/budgets/my-adjustment/?cycle_id=${cycleId}`),
+      api.get(`/budgets/my-lti/?cycle_id=${cycleId}`),
+    ])
+    myBudgets.value = a.data?.targets || []
+    myLti.value = l.data?.targets || []
+  } catch {
+    myBudgets.value = []
+    myLti.value = []
+  }
+}
+
 async function load() {
   const r = await api.get("/reward-cycle/")
   const c = r.data[0] || r.data.results?.[0]
   if (!c) return
   const d = await api.get(`/reward-cycle/${c.id}/allocation/`)
   cycle.value = d.data.cycle
+  await loadMyBudgets(c.id)
   rows.value = d.data.rows
 }
 function markDirty(row: any) {
@@ -329,9 +411,27 @@ async function save() {
       annual_manager_delta_pct: r.annual_manager_delta_pct,
       granted_ads: r.granted_ads,
     }))
-  await api.patch(`/reward-cycle/${cycle.value.id}/proposals/`, { items })
-  dirty.value.clear()
-  await load()
+  try {
+    await api.patch(`/reward-cycle/${cycle.value.id}/proposals/`, { items })
+    dirty.value.clear()
+    await load()
+  } catch (e: any) {
+    const data = e?.response?.data
+    if (data?.error === "BUDGET_EXCEEDED") {
+      const lines = (data.violations || []).map((v: any) => {
+        const subj = v.subject === "LTI" ? "LTI" : v.adjustment_type
+        const ou = v.target_org_unit_id ? `#${v.target_org_unit_id}` : "公司层"
+        return `${ou} · ${subj} · ${v.employee_category_1}：申请 ${v.requested} / 预算 ${v.budget}`
+      })
+      ElMessage({
+        type: "error",
+        message: `预算超额，已拒绝保存：\n${lines.join("\n")}`,
+        duration: 6000,
+      })
+    } else {
+      throw e
+    }
+  }
 }
 async function submit() {
   await api.post(`/reward-cycle/${cycle.value.id}/submit/`)
@@ -339,3 +439,21 @@ async function submit() {
 }
 onMounted(load)
 </script>
+
+<style scoped>
+.budget-bar {
+  margin-bottom: 12px;
+}
+.budget-bar__label {
+  display: block;
+  font-size: 12px;
+  color: #606266;
+  margin-bottom: 4px;
+}
+.budget-bar__detail {
+  display: block;
+  font-size: 12px;
+  color: #909399;
+  margin-top: 2px;
+}
+</style>
