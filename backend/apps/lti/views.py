@@ -1,13 +1,24 @@
+from django.db import transaction
+from django.shortcuts import get_object_or_404
 from rest_framework import permissions, viewsets, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from django.shortcuts import get_object_or_404
+
 from apps.reward_cycle.models import RewardCycle
 from apps.compensation_plan.models import AdjustmentProposal
-from apps.lti.models import LTIGrant, EmployeeAck, LTIPlan, LTIBudgetCell
-from apps.lti.serializers import LTIPlanSerializer, LTIBudgetCellSerializer
-from apps.hr_master.models import Employee
+from apps.compensation_plan.services.budget_distribution import compute_distribution
+from apps.compensation_plan.services.budget_aggregation import aggregate_lti_allocated
+from apps.compensation_plan.services.org_targets import validate_target_set
+from apps.iam.models import OrgUnit
 from apps.iam.permissions import IsHRAdmin
+from apps.iam.scoping import resolve_user_org_scope
+from apps.lti.models import LTIGrant, EmployeeAck, LTIPlan, LTIBudgetCell
+from apps.lti.serializers import (
+    LTIPlanSerializer,
+    LTIBudgetCellSerializer,
+    TargetLTIBudgetCellSerializer,
+)
+from apps.hr_master.models import Employee
 from apps.audit.services import log_action
 
 
@@ -101,28 +112,59 @@ class LTIPlanViewSet(viewsets.ModelViewSet):
         )
 
 
+def _ensure_company_lti_cells(plan):
+    for cat in LTI_CATEGORIES:
+        LTIBudgetCell.objects.get_or_create(
+            plan=plan, employee_category_1=cat, target_org_unit=None,
+            defaults={
+                "headcount_quota": 0, "shares_quota_ads": 0,
+                "headcount_used": 0, "shares_used_ads": 0,
+            },
+        )
+
+
+def _company_lti_cell(plan, cat):
+    return LTIBudgetCell.objects.get(
+        plan=plan, employee_category_1=cat, target_org_unit__isnull=True,
+    )
+
+
+def _attach_lti_used(cells, allocated_map):
+    for c in cells:
+        if c.target_org_unit_id is None:
+            continue
+        c.shares_used_ads = int(allocated_map.get((c.target_org_unit_id, c.employee_category_1), 0))
+
+
 class LTIBudgetView(APIView):
     permission_classes = [permissions.IsAuthenticated, IsHRAdmin]
 
-    def _ensure_cells(self, plan):
-        for cat in LTI_CATEGORIES:
-            LTIBudgetCell.objects.get_or_create(
-                plan=plan, employee_category_1=cat,
-                defaults={
-                    "headcount_quota": 0, "shares_quota_ads": 0,
-                    "headcount_used": 0, "shares_used_ads": 0,
-                },
-            )
-
     def get(self, request, plan_id):
         plan = get_object_or_404(LTIPlan, id=plan_id)
-        self._ensure_cells(plan)
-        cells = LTIBudgetCell.objects.filter(plan=plan).order_by("employee_category_1")
-        return Response({"rows": LTIBudgetCellSerializer(cells, many=True).data})
+        _ensure_company_lti_cells(plan)
+        company_cells = list(
+            LTIBudgetCell.objects.filter(
+                plan=plan, target_org_unit__isnull=True
+            ).order_by("employee_category_1")
+        )
+        target_cells = list(
+            LTIBudgetCell.objects.filter(
+                plan=plan, target_org_unit__isnull=False
+            ).select_related("target_org_unit").order_by(
+                "employee_category_1", "target_org_unit__code"
+            )
+        )
+        allocated_map = aggregate_lti_allocated(plan)
+        _attach_lti_used(target_cells, allocated_map)
+        return Response({
+            "rows": LTIBudgetCellSerializer(company_cells, many=True).data,
+            "company": LTIBudgetCellSerializer(company_cells, many=True).data,
+            "targets": TargetLTIBudgetCellSerializer(target_cells, many=True).data,
+        })
 
     def put(self, request, plan_id):
         plan = get_object_or_404(LTIPlan, id=plan_id)
-        self._ensure_cells(plan)
+        _ensure_company_lti_cells(plan)
         for row in request.data.get("rows", []):
             cat = row.get("employee_category_1")
             if cat not in LTI_CATEGORIES:
@@ -130,7 +172,7 @@ class LTIBudgetView(APIView):
                     {"error": f"invalid category: {cat}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            cell = LTIBudgetCell.objects.get(plan=plan, employee_category_1=cat)
+            cell = _company_lti_cell(plan, cat)
             cell.headcount_quota = int(row.get("headcount_quota", cell.headcount_quota))
             cell.shares_quota_ads = int(row.get("shares_quota_ads", cell.shares_quota_ads))
             cell.save(update_fields=["headcount_quota", "shares_quota_ads"])
@@ -138,5 +180,146 @@ class LTIBudgetView(APIView):
             "UPDATE", request.user, "LTIBudget", plan.id,
             {}, {"rows": request.data.get("rows", [])},
         )
-        cells = LTIBudgetCell.objects.filter(plan=plan).order_by("employee_category_1")
+        cells = LTIBudgetCell.objects.filter(
+            plan=plan, target_org_unit__isnull=True
+        ).order_by("employee_category_1")
         return Response({"rows": LTIBudgetCellSerializer(cells, many=True).data})
+
+
+class DistributeLtiBudgetView(APIView):
+    permission_classes = [permissions.IsAuthenticated, IsHRAdmin]
+
+    def post(self, request, plan_id):
+        plan = get_object_or_404(LTIPlan, id=plan_id)
+        _ensure_company_lti_cells(plan)
+
+        cat = request.data.get("employee_category_1")
+        mode = request.data.get("mode")
+        target_ids = request.data.get("target_org_unit_ids") or []
+        manual_amounts = request.data.get("manual_amounts") or {}
+        dry_run = bool(request.data.get("dry_run"))
+
+        if cat not in LTI_CATEGORIES:
+            return Response({"error": "invalid employee_category_1"}, status=400)
+        if mode not in ("MANUAL", "HEADCOUNT", "SALARY_TOTAL"):
+            return Response({"error": "invalid mode"}, status=400)
+        if not target_ids:
+            return Response({"error": "target_org_unit_ids required"}, status=400)
+
+        try:
+            validate_target_set(target_ids)
+        except ValueError as e:
+            return Response(
+                {"error": "TARGETS_OVERLAP", "detail": str(e)}, status=400,
+            )
+
+        ous = list(OrgUnit.objects.filter(id__in=target_ids))
+        if len(ous) != len(set(int(i) for i in target_ids)):
+            return Response({"error": "unknown org_unit id in targets"}, status=400)
+        for ou in ous:
+            if ou.type not in ("DEPT", "CENTER"):
+                return Response(
+                    {"error": "INVALID_TARGET_TYPE", "detail": f"{ou.code} type={ou.type}"},
+                    status=400,
+                )
+
+        company = _company_lti_cell(plan, cat)
+        try:
+            distribution = compute_distribution(
+                total=company.shares_quota_ads,
+                cat1=cat, mode=mode,
+                target_unit_ids=[ou.id for ou in ous],
+                manual_amounts=manual_amounts if mode == "MANUAL" else None,
+                integer_units=True,
+            )
+        except ValueError as e:
+            return Response(
+                {"error": "COMPUTE_FAILED", "detail": str(e)}, status=400,
+            )
+
+        if not dry_run:
+            allocated_map = aggregate_lti_allocated(plan)
+            for ou_id, new_shares in distribution.items():
+                actual = int(allocated_map.get((ou_id, cat), 0))
+                if int(new_shares) < actual:
+                    return Response({
+                        "error": "DEPT_REDUCE_BELOW_ALLOCATED",
+                        "detail": {
+                            "target_org_unit_id": ou_id,
+                            "requested": int(new_shares),
+                            "already_allocated": actual,
+                        },
+                    }, status=400)
+
+        if dry_run:
+            return Response({
+                "dry_run": True,
+                "company_total": int(company.shares_quota_ads),
+                "distribution": [
+                    {"target_org_unit_id": k, "shares_ads": int(v)}
+                    for k, v in distribution.items()
+                ],
+            })
+
+        with transaction.atomic():
+            LTIBudgetCell.objects.filter(
+                plan=plan, employee_category_1=cat, target_org_unit__isnull=False,
+            ).delete()
+            for ou_id, shares in distribution.items():
+                LTIBudgetCell.objects.create(
+                    plan=plan, employee_category_1=cat, target_org_unit_id=ou_id,
+                    shares_quota_ads=int(shares),
+                    headcount_quota=0,
+                )
+            company.distribution_rule = mode
+            company.save(update_fields=["distribution_rule"])
+
+        log_action(
+            "DISTRIBUTE", request.user, "LTIBudget", plan.id,
+            {}, {
+                "employee_category_1": cat, "mode": mode,
+                "distribution": {str(k): int(v) for k, v in distribution.items()},
+            },
+        )
+        return Response({
+            "ok": True,
+            "distribution": [
+                {"target_org_unit_id": k, "shares_ads": int(v)}
+                for k, v in distribution.items()
+            ],
+        })
+
+
+class MyLtiBudgetView(APIView):
+    """DEPT_HEAD / CENTER_HEAD 看自己负责单元的 LTI 额度。"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cycle_id = request.query_params.get("cycle_id")
+        if not cycle_id:
+            return Response({"error": "cycle_id required"}, status=400)
+        cycle = get_object_or_404(RewardCycle, id=cycle_id)
+        plan = cycle.linked_lti_plan
+        if not plan:
+            return Response({"cycle_id": cycle.id, "targets": []})
+
+        scope = resolve_user_org_scope(request.user)
+        scope_ids = list(scope.filter(type__in=("DEPT", "CENTER")).values_list("id", flat=True))
+
+        cells = list(
+            LTIBudgetCell.objects.filter(
+                plan=plan,
+                target_org_unit__isnull=False,
+                target_org_unit_id__in=scope_ids,
+            ).select_related("target_org_unit").order_by(
+                "target_org_unit__code", "employee_category_1"
+            )
+        )
+        allocated_map = aggregate_lti_allocated(plan)
+        _attach_lti_used(cells, allocated_map)
+
+        return Response({
+            "cycle_id": cycle.id,
+            "plan_id": plan.id,
+            "targets": TargetLTIBudgetCellSerializer(cells, many=True).data,
+        })
