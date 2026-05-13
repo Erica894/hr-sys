@@ -3,8 +3,30 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from .models import OrgUnit
 from .serializers import LoginSerializer, MFAVerifySerializer
 from .services import generate_totp_secret, get_totp_uri, verify_totp
+
+
+class OrgUnitListView(APIView):
+    """简单 OrgUnit 列表，供 FE 下发对话框选目标。
+
+    可选 `?type=DEPT,CENTER` 过滤；默认返回全部。
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        types = request.query_params.get("type")
+        qs = OrgUnit.objects.all().order_by("type", "code")
+        if types:
+            qs = qs.filter(type__in=[t.strip() for t in types.split(",") if t.strip()])
+        return Response([
+            {
+                "id": ou.id, "code": ou.code, "name": ou.name,
+                "type": ou.type, "parent_id": ou.parent_id,
+            }
+            for ou in qs
+        ])
 
 
 class LoginView(APIView):
