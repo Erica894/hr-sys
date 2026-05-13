@@ -46,6 +46,15 @@ class SaveProposalsView(APIView):
             return Response({"detail": "cycle not editable"}, status=400)
         items = SaveProposalsItemSerializer(data=request.data.get("items", []), many=True)
         items.is_valid(raise_exception=True)
+
+        from apps.compensation_plan.services.cap_check import check_adjustment_cap
+        violations = check_adjustment_cap(cycle, items.validated_data)
+        if violations:
+            return Response(
+                {"error": "BUDGET_EXCEEDED", "violations": violations},
+                status=400,
+            )
+
         for it in items.validated_data:
             if "annual_manager_delta_pct" in it:
                 AdjustmentProposal.objects.filter(
