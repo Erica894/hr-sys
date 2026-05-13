@@ -71,7 +71,48 @@ def execute_reward_cycle(cycle: RewardCycle, actor):
                 {}, {"granted_ads": total, "vesting_events": 5},
             )
 
+    _finalize_adjustment_cells(cycle)
+    _finalize_lti_cells(lti_plan)
+
     cycle.status = "EXECUTED"
     cycle.executed_at = timezone.now()
     cycle.save(update_fields=["status", "executed_at"])
     log_action("EXECUTE", actor, "RewardCycle", cycle.id, {}, {"final_status": "EXECUTED"})
+
+
+def _finalize_adjustment_cells(cycle):
+    """EXECUTE 后将每个目标层 cell 的 allocated/reclaim 固化（仅核算展示用）。"""
+    from apps.compensation_plan.models import AdjustmentBudgetCell
+    from apps.compensation_plan.services.budget_aggregation import (
+        aggregate_adjustment_allocated,
+    )
+
+    allocated = aggregate_adjustment_allocated(cycle)
+    target_cells = AdjustmentBudgetCell.objects.filter(
+        reward_cycle=cycle, department__isnull=False
+    )
+    for cell in target_cells:
+        used = allocated.get(
+            (cell.department_id, cell.adjustment_type, cell.employee_category_1),
+            Decimal("0"),
+        )
+        cell.allocated_amount_cny = Decimal(used).quantize(Decimal("0.01"))
+        leftover = Decimal(cell.budget_amount_cny) - cell.allocated_amount_cny
+        cell.reclaimed_amount_cny = leftover if leftover > 0 else Decimal("0")
+        cell.save(update_fields=["allocated_amount_cny", "reclaimed_amount_cny"])
+
+
+def _finalize_lti_cells(plan):
+    """LTI 同上：把 shares_used / reclaim 固化到目标层 cell。"""
+    if plan is None:
+        return
+    from apps.lti.models import LTIBudgetCell
+    from apps.compensation_plan.services.budget_aggregation import aggregate_lti_allocated
+
+    allocated = aggregate_lti_allocated(plan)
+    for cell in LTIBudgetCell.objects.filter(plan=plan, target_org_unit__isnull=False):
+        used = int(allocated.get((cell.target_org_unit_id, cell.employee_category_1), 0))
+        cell.shares_used_ads = used
+        leftover = int(cell.shares_quota_ads) - used
+        cell.reclaimed_shares_ads = leftover if leftover > 0 else 0
+        cell.save(update_fields=["shares_used_ads", "reclaimed_shares_ads"])
