@@ -1,12 +1,24 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px">
-    <h3 style="margin: 0 0 12px">薪酬区间管理</h3>
-    <el-alert
-      type="info"
-      :closable="false"
-      show-icon
-      title="施工中 — Sprint 2 交付"
-      description="将提供：按职级/岗位的薪酬区间维护（min / mid / max）、CR 计算口径配置、年度基准更新。"
+  <div class="hr-page">
+    <PageHeader
+      title="薪酬区间管理"
+      subtitle="按职级 / 岗位的薪酬带宽、Compa-ratio 与市场分位映射"
     />
-  </el-container>
+    <ComingSoonCard
+      title="薪酬区间维护待开放"
+      expected="预计 v1.5 迭代"
+      description="MVP 不含薪酬区间维护，市场分位数据来源（外购 / 砍掉）需在 6 项业务口径中拍板。"
+      :bullets="[
+        '按职级 / 岗位维护 min / mid / max',
+        'Compa-ratio 计算口径配置',
+        '市场分位 P50 / P75 / P90 数据接入',
+        '年度基准批量更新'
+      ]"
+    />
+  </div>
 </template>
+
+<script setup lang="ts">
+import PageHeader from "@/components/PageHeader.vue"
+import ComingSoonCard from "@/components/ComingSoonCard.vue"
+</script>
