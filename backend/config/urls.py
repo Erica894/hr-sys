@@ -10,4 +10,5 @@ urlpatterns = [
     path("api/admin/", include("apps.compensation_plan.admin_urls")),
     path("api/admin/", include("apps.lti.admin_urls")),
     path("api/admin/", include("apps.bonus_pool.admin_urls")),
+    path("api/budgets/", include("apps.compensation_plan.budget_urls")),
 ]
