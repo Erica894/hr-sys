@@ -1,48 +1,53 @@
 <template>
   <el-config-provider>
-    <el-container v-if="showNav" style="min-height: 100vh">
-      <el-aside v-if="hasManagementMenu" width="220px" style="background: #304156">
-        <div
-          style="
-            height: 56px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #fff;
-            font-weight: 600;
-            font-size: 16px;
-            letter-spacing: 1px;
-            border-bottom: 1px solid #1f2d3d;
-          "
-        >
-          HR-Sys
+    <el-container v-if="showNav" class="app-shell">
+      <el-aside v-if="hasManagementMenu" width="220px" class="app-sidebar">
+        <div class="app-sidebar__brand">
+          <span class="app-sidebar__brand-mark">HR</span>
+          <span class="app-sidebar__brand-text">薪酬管理系统</span>
         </div>
         <el-menu
           :default-active="route.path"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409EFF"
+          background-color="transparent"
+          text-color="var(--hr-color-sidebar-text)"
+          active-text-color="var(--hr-color-sidebar-text-active)"
           router
           unique-opened
+          class="app-sidebar__menu"
         >
           <!-- HR_ADMIN 菜单 -->
           <template v-if="isAdmin">
             <el-sub-menu index="admin-plans">
-              <template #title>方案设计</template>
+              <template #title>
+                <el-icon><Document /></el-icon>
+                <span>方案设计</span>
+              </template>
               <el-menu-item index="/admin/plans/adjustment">调薪方案</el-menu-item>
               <el-menu-item index="/admin/plans/lti">RSU 方案</el-menu-item>
               <el-menu-item index="/admin/plans/bonus">年终奖方案</el-menu-item>
             </el-sub-menu>
             <el-sub-menu index="admin-budgets">
-              <template #title>预算管理</template>
+              <template #title>
+                <el-icon><Money /></el-icon>
+                <span>预算管理</span>
+              </template>
               <el-menu-item index="/admin/budgets/adjustment">调薪预算</el-menu-item>
               <el-menu-item index="/admin/budgets/lti">RSU 预算</el-menu-item>
-              <el-menu-item index="/admin/budgets/my">我的预算（多租户预览）</el-menu-item>
+              <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
             </el-sub-menu>
-            <el-menu-item index="/admin/org">组织人员</el-menu-item>
-            <el-menu-item index="/admin/salary-bands">薪酬区间</el-menu-item>
+            <el-menu-item index="/admin/org">
+              <el-icon><OfficeBuilding /></el-icon>
+              <template #title>组织人员</template>
+            </el-menu-item>
+            <el-menu-item index="/admin/salary-bands">
+              <el-icon><Histogram /></el-icon>
+              <template #title>薪酬区间</template>
+            </el-menu-item>
             <el-sub-menu index="admin-approval">
-              <template #title>审批</template>
+              <template #title>
+                <el-icon><CircleCheck /></el-icon>
+                <span>审批中心</span>
+              </template>
               <el-menu-item index="/approval">审批列表</el-menu-item>
               <el-menu-item index="/execute">执行下发</el-menu-item>
             </el-sub-menu>
@@ -50,64 +55,63 @@
 
           <!-- DEPT_HEAD / CENTER_HEAD 菜单 -->
           <template v-if="isDeptHead || isCenterHead">
-            <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
-            <el-menu-item v-if="isDeptHead" index="/dept/available-budget">本部门预算</el-menu-item>
-            <el-menu-item v-if="isDeptHead" index="/allocation">薪酬分配</el-menu-item>
-            <el-menu-item v-if="isDeptHead" index="/dept/analysis">分配分析</el-menu-item>
+            <el-menu-item index="/admin/budgets/my">
+              <el-icon><Money /></el-icon>
+              <template #title>我的预算</template>
+            </el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/dept/available-budget">
+              <el-icon><Wallet /></el-icon>
+              <template #title>本部门预算</template>
+            </el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/allocation">
+              <el-icon><DataLine /></el-icon>
+              <template #title>薪酬分配</template>
+            </el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/dept/analysis">
+              <el-icon><PieChart /></el-icon>
+              <template #title>分配分析</template>
+            </el-menu-item>
           </template>
         </el-menu>
       </el-aside>
 
       <el-container>
-        <el-header
-          style="
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: #fff;
-            border-bottom: 1px solid #e4e7ed;
-            height: 56px;
-            padding: 0 20px;
-          "
-        >
-          <div
-            v-if="!hasManagementMenu"
-            style="font-weight: 600; font-size: 16px; letter-spacing: 1px"
-          >
-            HR-Sys
+        <el-header class="app-header">
+          <div v-if="!hasManagementMenu" class="app-header__brand">
+            <span class="app-sidebar__brand-mark">HR</span>
+            <span>薪酬管理系统</span>
           </div>
-          <div v-else></div>
+          <div v-else />
           <el-dropdown trigger="click" @command="onCommand">
-            <span
-              style="
-                display: inline-flex;
-                align-items: center;
-                cursor: pointer;
-                color: #606266;
-                font-size: 13px;
-              "
-            >
-              <el-avatar :size="28" style="margin-right: 8px; background: #409eff">
+            <span class="app-header__user">
+              <el-avatar :size="32" class="app-header__avatar">
                 {{ avatarText }}
               </el-avatar>
-              {{ roleLabel }}
-              <span style="margin-left: 4px; font-size: 10px">▼</span>
+              <span class="app-header__user-meta">
+                <span class="app-header__user-name">{{ userName }}</span>
+                <span class="app-header__user-role">{{ roleLabel }}</span>
+              </span>
+              <el-icon class="app-header__caret"><CaretBottom /></el-icon>
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="me">我的薪酬</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出</el-dropdown-item>
+                <el-dropdown-item command="me">
+                  <el-icon><User /></el-icon>我的薪酬
+                </el-dropdown-item>
+                <el-dropdown-item command="logout" divided>
+                  <el-icon><SwitchButton /></el-icon>退出登录
+                </el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
         </el-header>
-        <el-main style="padding: 0; background: #f5f7fa">
+        <el-main class="app-main">
           <router-view />
         </el-main>
       </el-container>
     </el-container>
 
-    <el-container v-else style="min-height: 100vh">
+    <el-container v-else class="app-shell">
       <el-main style="padding: 0">
         <router-view />
       </el-main>
@@ -119,6 +123,19 @@
 import { computed } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { useAuth } from "@/stores/auth"
+import {
+  CaretBottom,
+  CircleCheck,
+  DataLine,
+  Document,
+  Histogram,
+  Money,
+  OfficeBuilding,
+  PieChart,
+  SwitchButton,
+  User,
+  Wallet,
+} from "@element-plus/icons-vue"
 
 const route = useRoute()
 const router = useRouter()
@@ -137,7 +154,8 @@ const roleLabel = computed(() => {
   if (!labels.length && auth.roles.length) labels.push("员工")
   return labels.join(" / ")
 })
-const avatarText = computed(() => roleLabel.value.charAt(0) || "U")
+const userName = computed(() => auth.user?.email?.split("@")[0] || "未登录")
+const avatarText = computed(() => userName.value.charAt(0).toUpperCase() || "U")
 
 function onCommand(cmd: string) {
   if (cmd === "me") {
@@ -148,3 +166,162 @@ function onCommand(cmd: string) {
   }
 }
 </script>
+
+<style scoped>
+.app-shell {
+  min-height: 100vh;
+}
+
+/* ===== 侧边栏 ===== */
+.app-sidebar {
+  background: var(--hr-color-sidebar-bg);
+  border-right: 1px solid rgba(255, 255, 255, 0.04);
+  overflow-x: hidden;
+}
+
+.app-sidebar__brand {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+  padding: 0 var(--hr-space-5);
+  color: var(--hr-color-text-on-dark);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.app-sidebar__brand-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  background: var(--hr-color-brand);
+  color: #fff;
+  font-weight: var(--hr-font-weight-bold);
+  font-size: var(--hr-font-size-xs);
+  letter-spacing: 0.5px;
+  border-radius: var(--hr-radius-sm);
+}
+
+.app-sidebar__brand-text {
+  font-weight: var(--hr-font-weight-semibold);
+  font-size: var(--hr-font-size-md);
+  letter-spacing: 0.5px;
+}
+
+.app-sidebar__menu {
+  border-right: none;
+  padding: var(--hr-space-2) 0;
+}
+
+:deep(.app-sidebar__menu .el-menu-item),
+:deep(.app-sidebar__menu .el-sub-menu__title) {
+  font-size: var(--hr-font-size-md);
+  height: 44px;
+  line-height: 44px;
+  color: var(--hr-color-sidebar-text);
+}
+
+:deep(.app-sidebar__menu .el-menu-item:hover),
+:deep(.app-sidebar__menu .el-sub-menu__title:hover) {
+  background: var(--hr-color-sidebar-bg-hover) !important;
+  color: var(--hr-color-sidebar-text-active) !important;
+}
+
+:deep(.app-sidebar__menu .el-menu-item.is-active) {
+  background: var(--hr-color-sidebar-bg-active) !important;
+  color: var(--hr-color-sidebar-text-active) !important;
+  position: relative;
+}
+
+:deep(.app-sidebar__menu .el-menu-item.is-active::before) {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--hr-color-sidebar-accent);
+  border-radius: 0 var(--hr-radius-sm) var(--hr-radius-sm) 0;
+}
+
+:deep(.app-sidebar__menu .el-sub-menu .el-menu-item) {
+  background: transparent !important;
+  padding-left: 48px !important;
+}
+
+:deep(.app-sidebar__menu .el-icon) {
+  vertical-align: middle;
+  margin-right: var(--hr-space-2);
+}
+
+/* ===== 顶部 header ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--hr-color-bg-surface);
+  border-bottom: 1px solid var(--hr-color-border-light);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  height: 56px;
+  padding: 0 var(--hr-space-6);
+}
+
+.app-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+  font-weight: var(--hr-font-weight-semibold);
+  font-size: var(--hr-font-size-md);
+  color: var(--hr-color-text-primary);
+}
+
+.app-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+  cursor: pointer;
+  padding: var(--hr-space-1) var(--hr-space-2);
+  border-radius: var(--hr-radius-md);
+  transition: background var(--hr-transition-fast);
+}
+
+.app-header__user:hover {
+  background: var(--hr-color-bg-hover);
+}
+
+.app-header__avatar {
+  background: var(--hr-color-brand) !important;
+  color: #fff;
+  font-weight: var(--hr-font-weight-semibold);
+}
+
+.app-header__user-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+.app-header__user-name {
+  font-size: var(--hr-font-size-sm);
+  font-weight: var(--hr-font-weight-medium);
+  color: var(--hr-color-text-primary);
+}
+
+.app-header__user-role {
+  font-size: var(--hr-font-size-xs);
+  color: var(--hr-color-text-hint);
+}
+
+.app-header__caret {
+  font-size: 12px;
+  color: var(--hr-color-text-hint);
+}
+
+/* ===== 主内容区 ===== */
+.app-main {
+  padding: 0;
+  background: var(--hr-color-bg-page);
+}
+</style>

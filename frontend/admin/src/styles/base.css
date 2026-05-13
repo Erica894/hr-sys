@@ -1,0 +1,205 @@
+/* hr-sys 全局基础样式
+ * 全局 reset + 8 个语义化 utility class
+ */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--hr-font-family-sans);
+  font-size: var(--hr-font-size-md);
+  line-height: var(--hr-line-height-normal);
+  color: var(--hr-color-text-primary);
+  background: var(--hr-color-bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+  font-weight: var(--hr-font-weight-semibold);
+  color: var(--hr-color-text-primary);
+  line-height: var(--hr-line-height-tight);
+}
+
+p {
+  margin: 0;
+}
+
+/* ===== 全局滚动条样式 ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--hr-color-border-strong);
+  border-radius: var(--hr-radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hr-color-text-hint);
+}
+
+/* ===== 语义化 utility class ===== */
+
+/* 页面外层容器 */
+.hr-page {
+  padding: var(--hr-space-6);
+  min-height: 100%;
+}
+
+/* 紧凑型页面（侧栏菜单页等） */
+.hr-page--compact {
+  padding: var(--hr-space-4);
+}
+
+/* 顶部标题栏：标题左 + 操作按钮右 */
+.hr-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--hr-space-4);
+  margin-bottom: var(--hr-space-5);
+}
+
+.hr-page-header__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.hr-page-title {
+  font-size: var(--hr-font-size-xl);
+  font-weight: var(--hr-font-weight-semibold);
+  color: var(--hr-color-text-primary);
+  line-height: var(--hr-line-height-tight);
+  margin: 0;
+}
+
+.hr-page-subtitle {
+  font-size: var(--hr-font-size-sm);
+  color: var(--hr-color-text-regular);
+  line-height: var(--hr-line-height-normal);
+  margin: var(--hr-space-1) 0 0;
+}
+
+.hr-page-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+  flex-shrink: 0;
+}
+
+/* 筛选 / 操作工具栏 */
+.hr-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hr-space-3);
+  padding: var(--hr-space-3) var(--hr-space-4);
+  background: var(--hr-color-bg-surface);
+  border: 1px solid var(--hr-color-border-light);
+  border-radius: var(--hr-radius-md);
+  margin-bottom: var(--hr-space-4);
+}
+
+.hr-toolbar--plain {
+  background: transparent;
+  border: none;
+  padding: 0;
+}
+
+.hr-toolbar__spacer {
+  flex: 1;
+}
+
+/* 次级区块 */
+.hr-section {
+  background: var(--hr-color-bg-surface);
+  border: 1px solid var(--hr-color-border-light);
+  border-radius: var(--hr-radius-md);
+  padding: var(--hr-space-5);
+  margin-bottom: var(--hr-space-4);
+  box-shadow: var(--hr-shadow-card);
+}
+
+.hr-section--flush {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.hr-section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+  font-size: var(--hr-font-size-lg);
+  font-weight: var(--hr-font-weight-semibold);
+  color: var(--hr-color-text-primary);
+  margin: 0 0 var(--hr-space-4);
+}
+
+.hr-section-title::before {
+  content: "";
+  display: inline-block;
+  width: 3px;
+  height: 14px;
+  background: var(--hr-color-brand);
+  border-radius: var(--hr-radius-sm);
+}
+
+/* 等宽数字 */
+.hr-text-mono {
+  font-family: var(--hr-font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 小型辅助 */
+.hr-text-secondary { color: var(--hr-color-text-secondary); }
+.hr-text-hint      { color: var(--hr-color-text-hint); }
+.hr-text-success   { color: var(--hr-color-success); }
+.hr-text-warning   { color: var(--hr-color-warning); }
+.hr-text-danger    { color: var(--hr-color-danger); }
+.hr-text-brand     { color: var(--hr-color-brand); }
+
+.hr-stack-1 { display: flex; flex-direction: column; gap: var(--hr-space-1); }
+.hr-stack-2 { display: flex; flex-direction: column; gap: var(--hr-space-2); }
+.hr-stack-3 { display: flex; flex-direction: column; gap: var(--hr-space-3); }
+.hr-stack-4 { display: flex; flex-direction: column; gap: var(--hr-space-4); }
+
+.hr-row-1 { display: flex; align-items: center; gap: var(--hr-space-1); }
+.hr-row-2 { display: flex; align-items: center; gap: var(--hr-space-2); }
+.hr-row-3 { display: flex; align-items: center; gap: var(--hr-space-3); }
+.hr-row-4 { display: flex; align-items: center; gap: var(--hr-space-4); }
+
+/* ===== Element Plus 局部样式微调 ===== */
+
+/* 表格紧凑表头 */
+.el-table th.el-table__cell {
+  background: var(--hr-color-bg-subtle) !important;
+  color: var(--hr-color-text-secondary);
+  font-weight: var(--hr-font-weight-semibold);
+}
+
+.el-table .el-table__cell {
+  padding: var(--hr-space-2) 0;
+}
+
+/* 卡片默认 shadow 更轻 */
+.el-card {
+  box-shadow: var(--hr-shadow-card);
+}
+
+/* 按钮微调 */
+.el-button--primary {
+  font-weight: var(--hr-font-weight-medium);
+}

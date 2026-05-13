@@ -12,7 +12,7 @@ function loadRoles(): string[] {
 
 export const useAuth = defineStore("auth", {
   state: () => ({
-    user: null as any,
+    user: { email: localStorage.getItem("email") || "" } as { email: string },
     needsMfa: false,
     roles: loadRoles() as string[],
   }),
@@ -24,6 +24,8 @@ export const useAuth = defineStore("auth", {
       const r = await api.post("/auth/login/", { email, password })
       localStorage.setItem("access", r.data.access)
       localStorage.setItem("refresh", r.data.refresh)
+      localStorage.setItem("email", email)
+      this.user = { email }
       this.roles = Array.isArray(r.data.roles) ? r.data.roles : []
       localStorage.setItem("roles", JSON.stringify(this.roles))
       this.needsMfa = !!r.data.mfa_required
@@ -39,7 +41,8 @@ export const useAuth = defineStore("auth", {
       localStorage.removeItem("access")
       localStorage.removeItem("refresh")
       localStorage.removeItem("roles")
-      this.user = null
+      localStorage.removeItem("email")
+      this.user = { email: "" }
       this.needsMfa = false
       this.roles = []
     },

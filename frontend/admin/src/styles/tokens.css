@@ -1,0 +1,129 @@
+/* hr-sys 设计 token
+ * 颜色 / 间距 / 字号 / 阴影 / 圆角统一从这里出
+ * 如需修改主题，仅改这一个文件
+ */
+
+:root {
+  /* ===== 颜色 ===== */
+  --hr-color-bg-page:        #f5f7fa;
+  --hr-color-bg-surface:     #ffffff;
+  --hr-color-bg-subtle:      #fafbfc;
+  --hr-color-bg-hover:       #f3f4f6;
+
+  --hr-color-border:         #e4e7ed;
+  --hr-color-border-light:   #ebeef5;
+  --hr-color-border-strong:  #d1d5db;
+
+  --hr-color-text-primary:   #1f2937;
+  --hr-color-text-secondary: #4b5563;
+  --hr-color-text-regular:   #6b7280;
+  --hr-color-text-hint:      #9ca3af;
+  --hr-color-text-on-dark:   #f9fafb;
+
+  --hr-color-brand:          #1e5fbf;
+  --hr-color-brand-hover:    #1a52a3;
+  --hr-color-brand-light:    #e8f1ff;
+
+  --hr-color-success:        #10b981;
+  --hr-color-success-light:  #d1fae5;
+  --hr-color-warning:        #f59e0b;
+  --hr-color-warning-light:  #fef3c7;
+  --hr-color-danger:         #ef4444;
+  --hr-color-danger-light:   #fee2e2;
+  --hr-color-info:           #6b7280;
+
+  /* 侧边栏专用 */
+  --hr-color-sidebar-bg:        #1e293b;
+  --hr-color-sidebar-bg-hover:  #273449;
+  --hr-color-sidebar-bg-active: #0f172a;
+  --hr-color-sidebar-text:      #cbd5e1;
+  --hr-color-sidebar-text-active: #ffffff;
+  --hr-color-sidebar-accent:    #3b82f6;
+
+  /* ===== 间距（4 倍数） ===== */
+  --hr-space-1:  4px;
+  --hr-space-2:  8px;
+  --hr-space-3:  12px;
+  --hr-space-4:  16px;
+  --hr-space-5:  20px;
+  --hr-space-6:  24px;
+  --hr-space-8:  32px;
+  --hr-space-10: 40px;
+  --hr-space-12: 48px;
+  --hr-space-16: 64px;
+
+  /* ===== 字号 ===== */
+  --hr-font-size-xs:  12px;
+  --hr-font-size-sm:  13px;
+  --hr-font-size-md:  14px;
+  --hr-font-size-lg:  16px;
+  --hr-font-size-xl:  20px;
+  --hr-font-size-2xl: 24px;
+  --hr-font-size-3xl: 30px;
+
+  --hr-font-weight-regular: 400;
+  --hr-font-weight-medium:  500;
+  --hr-font-weight-semibold: 600;
+  --hr-font-weight-bold:    700;
+
+  --hr-line-height-tight:   1.3;
+  --hr-line-height-normal:  1.5;
+  --hr-line-height-relaxed: 1.7;
+
+  /* ===== 圆角 ===== */
+  --hr-radius-sm:   4px;
+  --hr-radius-md:   6px;
+  --hr-radius-lg:   8px;
+  --hr-radius-xl:   12px;
+  --hr-radius-full: 9999px;
+
+  /* ===== 阴影 ===== */
+  --hr-shadow-card:     0 1px 2px rgba(15, 23, 42, 0.04), 0 1px 3px rgba(15, 23, 42, 0.06);
+  --hr-shadow-elevated: 0 4px 12px rgba(15, 23, 42, 0.08), 0 2px 4px rgba(15, 23, 42, 0.04);
+  --hr-shadow-floating: 0 12px 32px rgba(15, 23, 42, 0.12), 0 4px 8px rgba(15, 23, 42, 0.06);
+
+  /* ===== 字体 ===== */
+  --hr-font-family-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+    "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  --hr-font-family-mono: "SF Mono", Menlo, Consolas, "Liberation Mono", "Courier New", monospace;
+
+  /* ===== 过渡 ===== */
+  --hr-transition-fast:   150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --hr-transition-normal: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ===== Element Plus 变量覆盖 =====
+ * 仅覆盖核心调色，不动尺寸/圆角等结构性变量
+ */
+:root {
+  --el-color-primary:                var(--hr-color-brand);
+  --el-color-primary-light-3:        #5687d4;
+  --el-color-primary-light-5:        #88a9e0;
+  --el-color-primary-light-7:        #bbcdec;
+  --el-color-primary-light-8:        #d3def3;
+  --el-color-primary-light-9:        var(--hr-color-brand-light);
+  --el-color-primary-dark-2:         var(--hr-color-brand-hover);
+
+  --el-color-success:                var(--hr-color-success);
+  --el-color-warning:                var(--hr-color-warning);
+  --el-color-danger:                 var(--hr-color-danger);
+  --el-color-info:                   var(--hr-color-info);
+
+  --el-text-color-primary:           var(--hr-color-text-primary);
+  --el-text-color-regular:           var(--hr-color-text-secondary);
+  --el-text-color-secondary:         var(--hr-color-text-regular);
+  --el-text-color-placeholder:       var(--hr-color-text-hint);
+
+  --el-border-color:                 var(--hr-color-border);
+  --el-border-color-light:           var(--hr-color-border);
+  --el-border-color-lighter:         var(--hr-color-border-light);
+  --el-border-color-extra-light:     var(--hr-color-border-light);
+
+  --el-bg-color-page:                var(--hr-color-bg-page);
+  --el-bg-color:                     var(--hr-color-bg-surface);
+  --el-fill-color-blank:             var(--hr-color-bg-surface);
+  --el-fill-color-light:             var(--hr-color-bg-subtle);
+  --el-fill-color-lighter:           var(--hr-color-bg-subtle);
+
+  --el-font-family:                  var(--hr-font-family-sans);
+}
