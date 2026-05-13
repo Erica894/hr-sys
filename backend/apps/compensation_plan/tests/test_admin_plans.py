@@ -90,6 +90,7 @@ def test_budget_put_updates_amount_and_remaining(hr):
     hr.get(f"/api/admin/reward-cycles/{cycle.id}/adjustment-budget/")
     cell = AdjustmentBudgetCell.objects.get(
         reward_cycle=cycle, adjustment_type="ANNUAL", employee_category_1="STAFF",
+        department__isnull=True,
     )
     cell.allocated_amount_cny = 50000
     cell.save(update_fields=["allocated_amount_cny"])

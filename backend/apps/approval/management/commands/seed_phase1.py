@@ -142,6 +142,55 @@ class Command(BaseCommand):
                 defaults={"headcount_quota": 3, "shares_quota_ads": 25000},
             )
 
+        # 二级下发演示：把 ANNUAL/PROMOTION × MANAGEMENT/STAFF 公司池按人头切到 ENG/PROD
+        from apps.compensation_plan.services.budget_distribution import (
+            compute_distribution,
+        )
+        from decimal import Decimal as _D
+        from apps.lti.models import LTIBudgetCell as _LtiCell
+
+        target_ids = [eng.id, prod.id]
+        for adj_type in ("ANNUAL", "PROMOTION"):
+            for cat in ("MANAGEMENT", "STAFF"):
+                company = AdjustmentBudgetCell.objects.get(
+                    reward_cycle=cycle, adjustment_type=adj_type,
+                    employee_category_1=cat, department__isnull=True,
+                )
+                dist = compute_distribution(
+                    total=_D(company.budget_amount_cny),
+                    cat1=cat, mode="HEADCOUNT",
+                    target_unit_ids=target_ids,
+                )
+                if not dist:
+                    continue
+                for ou_id, amount in dist.items():
+                    AdjustmentBudgetCell.objects.update_or_create(
+                        reward_cycle=cycle, adjustment_type=adj_type,
+                        employee_category_1=cat, department_id=ou_id,
+                        defaults={"budget_amount_cny": amount},
+                    )
+                company.distribution_rule = "HEADCOUNT"
+                company.save(update_fields=["distribution_rule"])
+
+        for cat in ("MANAGEMENT", "STAFF"):
+            company = _LtiCell.objects.get(
+                plan=lti_plan, employee_category_1=cat, target_org_unit__isnull=True,
+            )
+            dist = compute_distribution(
+                total=_D(company.shares_quota_ads),
+                cat1=cat, mode="HEADCOUNT",
+                target_unit_ids=target_ids, integer_units=True,
+            )
+            if not dist:
+                continue
+            for ou_id, shares in dist.items():
+                _LtiCell.objects.update_or_create(
+                    plan=lti_plan, employee_category_1=cat, target_org_unit_id=ou_id,
+                    defaults={"shares_quota_ads": int(shares)},
+                )
+            company.distribution_rule = "HEADCOUNT"
+            company.save(update_fields=["distribution_rule"])
+
         self.stdout.write(self.style.SUCCESS("Phase 1 seed loaded"))
         self.stdout.write(f"  RewardCycle ID: {cycle.id}")
         self.stdout.write("  HR Admin:  hr@demo.com / demo1234")
