@@ -47,8 +47,11 @@ class SaveProposalsView(APIView):
         items = SaveProposalsItemSerializer(data=request.data.get("items", []), many=True)
         items.is_valid(raise_exception=True)
 
-        from apps.compensation_plan.services.cap_check import check_adjustment_cap
+        from apps.compensation_plan.services.cap_check import (
+            check_adjustment_cap, check_lti_cap,
+        )
         violations = check_adjustment_cap(cycle, items.validated_data)
+        violations += check_lti_cap(cycle, items.validated_data)
         if violations:
             return Response(
                 {"error": "BUDGET_EXCEEDED", "violations": violations},

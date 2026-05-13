@@ -112,4 +112,87 @@ def check_adjustment_cap(cycle, items: Iterable[dict]):
     return violations
 
 
-# LTI cap check 在 LTIBudgetCell schema 扩展后（T7）补上。
+def _index_target_budgets_lti(plan):
+    from apps.lti.models import LTIBudgetCell
+    out: dict[tuple[int, str], int] = {}
+    for c in LTIBudgetCell.objects.filter(plan=plan, target_org_unit__isnull=False):
+        out[(c.target_org_unit_id, c.employee_category_1)] = int(c.shares_quota_ads)
+    return out
+
+
+def _index_company_budgets_lti(plan):
+    from apps.lti.models import LTIBudgetCell
+    out: dict[str, int] = {}
+    for c in LTIBudgetCell.objects.filter(plan=plan, target_org_unit__isnull=True):
+        out[c.employee_category_1] = int(c.shares_quota_ads)
+    return out
+
+
+def check_lti_cap(cycle, items: Iterable[dict]):
+    """LTI granted_ads dry-run cap check.
+
+    items 形如 [{"employee_id": int, "granted_ads": int}]，未带的字段忽略。
+    """
+    from apps.lti.models import LTIGrant
+
+    plan = cycle.linked_lti_plan
+    if plan is None:
+        return []
+
+    overrides = {
+        int(it["employee_id"]): int(it["granted_ads"])
+        for it in items
+        if "granted_ads" in it and it.get("employee_id") is not None
+    }
+
+    grants = list(LTIGrant.objects.filter(plan=plan).select_related("employee"))
+
+    target_budgets = _index_target_budgets_lti(plan)
+
+    target_ids_by_cat: dict[str, set[int]] = defaultdict(set)
+    for (ou_id, cat) in target_budgets:
+        target_ids_by_cat[cat].add(ou_id)
+
+    sums: dict[tuple[int, str], int] = defaultdict(int)
+    company_sums: dict[str, int] = defaultdict(int)
+
+    for g in grants:
+        cat = g.employee_category_1_snapshot
+        shares = overrides.get(g.employee_id, int(g.granted_ads or 0))
+        if shares <= 0:
+            continue
+        tids = target_ids_by_cat.get(cat, set())
+        if tids:
+            ou = resolve_owning_target(g.employee, tids)
+            if ou is not None:
+                sums[(ou, cat)] += shares
+        else:
+            company_sums[cat] += shares
+
+    violations = []
+    for (ou_id, cat), used in sums.items():
+        budget = target_budgets.get((ou_id, cat), 0)
+        if used > budget:
+            violations.append({
+                "level": "TARGET",
+                "target_org_unit_id": ou_id,
+                "subject": "LTI",
+                "employee_category_1": cat,
+                "requested": used,
+                "budget": budget,
+            })
+
+    if company_sums:
+        company_budgets = _index_company_budgets_lti(plan)
+        for cat, used in company_sums.items():
+            budget = company_budgets.get(cat, 0)
+            if used > budget:
+                violations.append({
+                    "level": "COMPANY",
+                    "subject": "LTI",
+                    "employee_category_1": cat,
+                    "requested": used,
+                    "budget": budget,
+                })
+
+    return violations
