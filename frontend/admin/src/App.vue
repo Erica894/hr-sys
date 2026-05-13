@@ -37,6 +37,7 @@
               <template #title>预算管理</template>
               <el-menu-item index="/admin/budgets/adjustment">调薪预算</el-menu-item>
               <el-menu-item index="/admin/budgets/lti">RSU 预算</el-menu-item>
+              <el-menu-item index="/admin/budgets/my">我的预算（多租户预览）</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/admin/org">组织人员</el-menu-item>
             <el-menu-item index="/admin/salary-bands">薪酬区间</el-menu-item>
@@ -47,11 +48,12 @@
             </el-sub-menu>
           </template>
 
-          <!-- DEPT_HEAD 菜单 -->
-          <template v-if="isDeptHead">
-            <el-menu-item index="/dept/available-budget">本部门预算</el-menu-item>
-            <el-menu-item index="/allocation">薪酬分配</el-menu-item>
-            <el-menu-item index="/dept/analysis">分配分析</el-menu-item>
+          <!-- DEPT_HEAD / CENTER_HEAD 菜单 -->
+          <template v-if="isDeptHead || isCenterHead">
+            <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/dept/available-budget">本部门预算</el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/allocation">薪酬分配</el-menu-item>
+            <el-menu-item v-if="isDeptHead" index="/dept/analysis">分配分析</el-menu-item>
           </template>
         </el-menu>
       </el-aside>
@@ -125,11 +127,13 @@ const auth = useAuth()
 const showNav = computed(() => route.path !== "/login")
 const isAdmin = computed(() => auth.hasRole("HR_ADMIN"))
 const isDeptHead = computed(() => auth.hasRole("DEPT_HEAD"))
-const hasManagementMenu = computed(() => isAdmin.value || isDeptHead.value)
+const isCenterHead = computed(() => auth.hasRole("CENTER_HEAD"))
+const hasManagementMenu = computed(() => isAdmin.value || isDeptHead.value || isCenterHead.value)
 const roleLabel = computed(() => {
   const labels: string[] = []
   if (isAdmin.value) labels.push("HR 管理员")
   if (isDeptHead.value) labels.push("部门负责人")
+  if (isCenterHead.value) labels.push("中心负责人")
   if (!labels.length && auth.roles.length) labels.push("员工")
   return labels.join(" / ")
 })

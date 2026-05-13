@@ -88,6 +88,11 @@ const routes = [
     component: () => import("@/views/budgets/LtiBudgetView.vue"),
     meta: { requiresAdmin: true },
   },
+  {
+    path: "/admin/budgets/my",
+    component: () => import("@/views/budgets/MyBudgetView.vue"),
+    meta: { requiresAnyRole: ["DEPT_HEAD", "CENTER_HEAD", "HR_ADMIN"] },
+  },
 
   // HR_ADMIN: 其他
   {
@@ -113,12 +118,17 @@ router.beforeEach((to, from) => {
   const auth = useAuth()
   const needAdmin = !!to.meta?.requiresAdmin
   const needDept = !!to.meta?.requiresDeptHead
+  const needAny = (to.meta?.requiresAnyRole as string[] | undefined) || null
 
   if (needAdmin && !auth.hasRole("HR_ADMIN")) {
     ElMessage.error("无权限访问该页面")
     return from.name || from.path !== "/" ? false : "/"
   }
   if (needDept && !auth.hasRole("DEPT_HEAD")) {
+    ElMessage.error("无权限访问该页面")
+    return from.name || from.path !== "/" ? false : "/"
+  }
+  if (needAny && !needAny.some((r) => auth.hasRole(r))) {
     ElMessage.error("无权限访问该页面")
     return from.name || from.path !== "/" ? false : "/"
   }
