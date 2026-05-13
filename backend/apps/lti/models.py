@@ -26,14 +26,29 @@ class LTIBudgetCell(models.Model):
     CAT1 = [("MANAGEMENT", "管理干部"), ("STAFF", "员工")]
     plan = models.ForeignKey(LTIPlan, on_delete=models.CASCADE, related_name="budget_cells")
     employee_category_1 = models.CharField(max_length=16, choices=CAT1)
+    target_org_unit = models.ForeignKey(
+        "iam.OrgUnit", null=True, blank=True, on_delete=models.PROTECT,
+        related_name="lti_budget_cells",
+        help_text="NULL = 公司层；非 NULL = 该 DEPT/CENTER 单元的下发额度",
+    )
     headcount_quota = models.IntegerField(default=0)
     shares_quota_ads = models.BigIntegerField(default=0)
     headcount_used = models.IntegerField(default=0)
     shares_used_ads = models.BigIntegerField(default=0)
+    distribution_rule = models.CharField(
+        max_length=16,
+        choices=[("MANUAL", "手动"), ("HEADCOUNT", "按人头"), ("SALARY_TOTAL", "按薪资基数")],
+        default="MANUAL", blank=True,
+        help_text="仅公司层 cell 使用，记录最近一次下发规则",
+    )
+    reclaimed_shares_ads = models.BigIntegerField(
+        default=0,
+        help_text="EXECUTE 后回收的未授予股数（仅目标层）",
+    )
 
     class Meta:
         db_table = "lti_budget_cell"
-        unique_together = [("plan", "employee_category_1")]
+        unique_together = [("plan", "employee_category_1", "target_org_unit")]
 
 
 class LTIGrant(models.Model):
