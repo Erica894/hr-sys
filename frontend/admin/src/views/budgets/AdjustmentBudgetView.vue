@@ -1,31 +1,33 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px">
-    <h3 style="margin: 0 0 16px">调薪预算池</h3>
-    <el-form inline>
-      <el-form-item label="Reward Cycle">
-        <el-select
-          v-model="cycleId"
-          placeholder="选择周期"
-          style="width: 320px"
-          @change="load"
-        >
-          <el-option
-            v-for="c in cycles"
-            :key="c.id"
-            :label="`${c.code} (${c.budget_year})`"
-            :value="c.id"
-          />
-        </el-select>
-      </el-form-item>
-    </el-form>
+  <div class="hr-page">
+    <PageHeader
+      title="调薪预算池"
+      subtitle="按员工类别 × 调薪类型配置公司层调薪预算，并下发到部门 / 中心"
+    />
 
-    <h4 style="margin: 16px 0 8px">公司层预算</h4>
+    <Toolbar>
+      <span class="hr-text-secondary">Reward Cycle</span>
+      <el-select
+        v-model="cycleId"
+        placeholder="选择周期"
+        style="width: 320px"
+        @change="load"
+      >
+        <el-option
+          v-for="c in cycles"
+          :key="c.id"
+          :label="`${c.code} (${c.budget_year})`"
+          :value="c.id"
+        />
+      </el-select>
+    </Toolbar>
+
+    <h3 class="hr-section-title">公司层预算</h3>
     <el-table
       v-if="cycleId"
       :data="tableRows"
       border
       v-loading="loading"
-      style="margin-top: 4px"
     >
       <el-table-column label="员工类别" prop="label" width="140" fixed />
       <el-table-column label="年度调薪 ANNUAL">
@@ -50,46 +52,72 @@
       </el-table-column>
     </el-table>
 
-    <div v-if="cycleId" style="margin-top: 16px">
+    <div v-if="cycleId" class="hr-row-2" style="margin-top: var(--hr-space-4)">
       <el-button type="primary" @click="save" :loading="saving">保存预算</el-button>
     </div>
 
-    <h4 v-if="cycleId" style="margin: 24px 0 8px">已下发到部门 / 中心</h4>
+    <h3 v-if="cycleId" class="hr-section-title" style="margin-top: var(--hr-space-6)">
+      已下发到部门 / 中心
+    </h3>
     <el-table
       v-if="cycleId"
       :data="targets"
-      border
-      empty-text="暂未下发"
+      stripe
       v-loading="loading"
     >
-      <el-table-column label="单元" min-width="160">
+      <el-table-column label="单元" min-width="200">
         <template #default="{ row }">
-          <el-tag size="small" :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'">
+          <el-tag
+            size="small"
+            effect="plain"
+            :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'"
+          >
             {{ row.target_org_unit_type }}
           </el-tag>
-          <span style="margin-left: 6px">{{ row.target_org_unit_name }}</span>
+          <span style="margin-left: var(--hr-space-2)">{{ row.target_org_unit_name }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="类型" prop="adjustment_type" width="110" />
+      <el-table-column label="类型" prop="adjustment_type" width="120">
+        <template #default="{ row }">
+          <el-tag size="small" effect="plain">{{ row.adjustment_type }}</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="员工类别" width="120">
         <template #default="{ row }">
           {{ row.employee_category_1 === "MANAGEMENT" ? "管理干部" : "员工" }}
         </template>
       </el-table-column>
-      <el-table-column label="预算" width="140">
-        <template #default="{ row }">{{ fmt(row.budget_amount_cny) }}</template>
-      </el-table-column>
-      <el-table-column label="已分配" width="140">
-        <template #default="{ row }">{{ fmt(row.allocated_amount_cny) }}</template>
-      </el-table-column>
-      <el-table-column label="剩余" width="140">
+      <el-table-column label="预算（CNY）" width="160" align="right">
         <template #default="{ row }">
-          {{ fmt(Number(row.budget_amount_cny) - Number(row.allocated_amount_cny || 0)) }}
+          <span class="hr-text-mono">{{ fmt(row.budget_amount_cny) }}</span>
         </template>
       </el-table-column>
-      <el-table-column label="回收(执行后)" width="140">
-        <template #default="{ row }">{{ fmt(row.reclaimed_amount_cny) }}</template>
+      <el-table-column label="已分配" width="160" align="right">
+        <template #default="{ row }">
+          <span class="hr-text-mono">{{ fmt(row.allocated_amount_cny) }}</span>
+        </template>
       </el-table-column>
+      <el-table-column label="剩余" width="160" align="right">
+        <template #default="{ row }">
+          <span class="hr-text-mono">
+            {{ fmt(Number(row.budget_amount_cny) - Number(row.allocated_amount_cny || 0)) }}
+          </span>
+        </template>
+      </el-table-column>
+      <el-table-column label="回收（执行后）" width="160" align="right">
+        <template #default="{ row }">
+          <span class="hr-text-mono hr-text-secondary">
+            {{ fmt(row.reclaimed_amount_cny) }}
+          </span>
+        </template>
+      </el-table-column>
+      <template #empty>
+        <EmptyHint
+          title="暂未下发"
+          description="尚未将公司层预算切到部门 / 中心，请使用上方下发按钮"
+          icon="box"
+        />
+      </template>
     </el-table>
 
     <el-dialog
@@ -167,13 +195,14 @@
         </el-button>
       </template>
     </el-dialog>
-  </el-container>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h, defineComponent, type PropType } from "vue"
 import { ElMessage, ElMessageBox, ElInputNumber, ElProgress, ElButton } from "element-plus"
 import api from "@/api/client"
+import { PageHeader, Toolbar, EmptyHint } from "@/components"
 
 type Cell = {
   adjustment_type: string
