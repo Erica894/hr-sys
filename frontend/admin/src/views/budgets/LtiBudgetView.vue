@@ -1,20 +1,23 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px">
-    <h3 style="margin: 0 0 16px">RSU 预算池</h3>
-    <el-form inline>
-      <el-form-item label="RSU 方案">
-        <el-select v-model="planId" placeholder="选择方案" style="width: 320px" @change="load">
-          <el-option
-            v-for="p in plans"
-            :key="p.id"
-            :label="`${p.code} - ${p.name}`"
-            :value="p.id"
-          />
-        </el-select>
-      </el-form-item>
-    </el-form>
+  <div class="hr-page">
+    <PageHeader
+      title="RSU 预算池"
+      subtitle="按 RSU 方案维度配置公司层股数与人数配额，并下发到部门 / 中心"
+    />
 
-    <h4 style="margin: 12px 0 8px">公司层预算</h4>
+    <Toolbar>
+      <span class="hr-text-secondary">RSU 方案</span>
+      <el-select v-model="planId" placeholder="选择方案" style="width: 320px" @change="load">
+        <el-option
+          v-for="p in plans"
+          :key="p.id"
+          :label="`${p.code} - ${p.name}`"
+          :value="p.id"
+        />
+      </el-select>
+    </Toolbar>
+
+    <h3 class="hr-section-title">公司层预算</h3>
     <el-table v-if="planId" :data="rows" border v-loading="loading" style="margin-top: 4px">
       <el-table-column label="员工类别" width="140">
         <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
@@ -165,13 +168,16 @@
         </el-button>
       </template>
     </el-dialog>
-  </el-container>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
 import api from "@/api/client"
+import PageHeader from "@/components/PageHeader.vue"
+import Toolbar from "@/components/Toolbar.vue"
+import { fmtInt } from "@/utils/format"
 
 type LtiCell = {
   employee_category_1: string
@@ -204,9 +210,6 @@ const saving = ref(false)
 
 function catLabel(c: string) {
   return c === "MANAGEMENT" ? "管理干部" : "员工"
-}
-function fmtInt(v: any) {
-  return Number(v || 0).toLocaleString("zh-CN")
 }
 function pct(used: number, quota: number) {
   const u = Number(used || 0)

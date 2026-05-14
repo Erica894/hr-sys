@@ -1,101 +1,200 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px">
-    <h3 style="margin: 0 0 16px">我的预算</h3>
-    <el-form inline>
-      <el-form-item label="Reward Cycle">
-        <el-select v-model="cycleId" style="width: 320px" @change="loadAll">
-          <el-option
-            v-for="c in cycles"
-            :key="c.id"
-            :label="`${c.code} (${c.budget_year})`"
-            :value="c.id"
+  <div class="hr-page">
+    <PageHeader
+      title="我的预算"
+      subtitle="部门 / 中心负责人查看本单元已下发的调薪与 RSU 额度"
+    />
+
+    <Toolbar>
+      <span class="hr-text-secondary">薪酬周期</span>
+      <el-select
+        v-model="cycleId"
+        style="width: 280px"
+        placeholder="请选择"
+        @change="loadAll"
+      >
+        <el-option
+          v-for="c in cycles"
+          :key="c.id"
+          :label="`${c.code}（${c.budget_year}）`"
+          :value="c.id"
+        />
+      </el-select>
+    </Toolbar>
+
+    <div v-if="cycleId" class="hr-section">
+      <el-tabs v-model="activeTab" class="my-budget-tabs">
+        <el-tab-pane name="adj">
+          <template #label>
+            <span class="my-budget-tabs__label">
+              <el-icon><Money /></el-icon>现金调薪
+              <el-tag v-if="adj.length" size="small" type="info" effect="plain">
+                {{ adj.length }}
+              </el-tag>
+            </span>
+          </template>
+          <el-table
+            :data="adj"
+            stripe
+            empty-text="暂无可见预算"
+            v-loading="loadingAdj"
+          >
+            <el-table-column label="单元" min-width="180">
+              <template #default="{ row }">
+                <span class="my-budget-tabs__cell-name">
+                  <el-tag
+                    size="small"
+                    :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'"
+                    effect="plain"
+                  >
+                    {{ row.target_org_unit_type === "CENTER" ? "中心" : "部门" }}
+                  </el-tag>
+                  {{ row.target_org_unit_name }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="类型" prop="adjustment_type" width="110">
+              <template #default="{ row }">
+                <span class="hr-text-secondary">
+                  {{ row.adjustment_type === "ANNUAL" ? "年度" : "晋升" }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="员工类别" width="120">
+              <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
+            </el-table-column>
+            <el-table-column label="预算" width="140" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtMoney(row.budget_amount_cny) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="已分配" width="140" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtMoney(row.allocated_amount_cny) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="剩余" width="140" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono hr-text-success">
+                  {{ fmtMoney(Number(row.budget_amount_cny) - Number(row.allocated_amount_cny || 0)) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="使用率" min-width="180">
+              <template #default="{ row }">
+                <el-progress
+                  :percentage="pct(row.allocated_amount_cny, row.budget_amount_cny)"
+                  :stroke-width="6"
+                  :status="progressStatus(row.allocated_amount_cny, row.budget_amount_cny)"
+                />
+              </template>
+            </el-table-column>
+            <template #empty>
+              <EmptyHint
+                title="暂无可见预算"
+                description="尚未有调薪预算下发到您管辖的单元"
+              />
+            </template>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane name="lti">
+          <template #label>
+            <span class="my-budget-tabs__label">
+              <el-icon><Trophy /></el-icon>RSU
+              <el-tag v-if="lti.length" size="small" type="info" effect="plain">
+                {{ lti.length }}
+              </el-tag>
+            </span>
+          </template>
+          <el-table
+            :data="lti"
+            stripe
+            v-loading="loadingLti"
+          >
+            <el-table-column label="单元" min-width="180">
+              <template #default="{ row }">
+                <span class="my-budget-tabs__cell-name">
+                  <el-tag
+                    size="small"
+                    :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'"
+                    effect="plain"
+                  >
+                    {{ row.target_org_unit_type === "CENTER" ? "中心" : "部门" }}
+                  </el-tag>
+                  {{ row.target_org_unit_name }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="员工类别" width="120">
+              <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
+            </el-table-column>
+            <el-table-column label="股数配额" width="130" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtInt(row.shares_quota_ads) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="已授予" width="130" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtInt(row.shares_used_ads) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="剩余" width="130" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono hr-text-success">
+                  {{ fmtInt(Number(row.shares_quota_ads) - Number(row.shares_used_ads || 0)) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="使用率" min-width="180">
+              <template #default="{ row }">
+                <el-progress
+                  :percentage="pct(row.shares_used_ads, row.shares_quota_ads)"
+                  :stroke-width="6"
+                  :status="progressStatus(row.shares_used_ads, row.shares_quota_ads)"
+                />
+              </template>
+            </el-table-column>
+            <template #empty>
+              <EmptyHint
+                title="暂无可见 RSU 预算"
+                description="尚未有 RSU 预算下发到您管辖的单元"
+              />
+            </template>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane name="bonus">
+          <template #label>
+            <span class="my-budget-tabs__label">
+              <el-icon><Present /></el-icon>年终奖
+            </span>
+          </template>
+          <ComingSoonCard
+            title="年终奖预算待开放"
+            expected="预计 v1.5 迭代"
+            description="年终奖全链路（BonusBudgetCell + Proposal + 执行）将在 v1.5 上线，复用现金调薪 / RSU 同一套二级分发引擎。"
+            :bullets="[
+              '部门 / 中心二级下发',
+              '与现金调薪 / RSU 共用 cap 校验',
+              '执行后自动回收剩余'
+            ]"
           />
-        </el-select>
-      </el-form-item>
-    </el-form>
-
-    <el-tabs v-model="activeTab" v-if="cycleId" style="margin-top: 12px">
-      <el-tab-pane label="现金调薪" name="adj">
-        <el-table :data="adj" border empty-text="暂无可见预算" v-loading="loadingAdj">
-          <el-table-column label="单元" min-width="160">
-            <template #default="{ row }">
-              <el-tag size="small" :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'">
-                {{ row.target_org_unit_type }}
-              </el-tag>
-              <span style="margin-left: 6px">{{ row.target_org_unit_name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="类型" prop="adjustment_type" width="110" />
-          <el-table-column label="员工类别" width="120">
-            <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
-          </el-table-column>
-          <el-table-column label="预算" width="140">
-            <template #default="{ row }">{{ fmt(row.budget_amount_cny) }}</template>
-          </el-table-column>
-          <el-table-column label="已分配" width="140">
-            <template #default="{ row }">{{ fmt(row.allocated_amount_cny) }}</template>
-          </el-table-column>
-          <el-table-column label="剩余" width="140">
-            <template #default="{ row }">
-              {{ fmt(Number(row.budget_amount_cny) - Number(row.allocated_amount_cny || 0)) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="使用率" width="180">
-            <template #default="{ row }">
-              <el-progress
-                :percentage="pct(row.allocated_amount_cny, row.budget_amount_cny)"
-                :stroke-width="8"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-
-      <el-tab-pane label="LTI" name="lti">
-        <el-table :data="lti" border empty-text="暂无可见 LTI 预算" v-loading="loadingLti">
-          <el-table-column label="单元" min-width="160">
-            <template #default="{ row }">
-              <el-tag size="small" :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'">
-                {{ row.target_org_unit_type }}
-              </el-tag>
-              <span style="margin-left: 6px">{{ row.target_org_unit_name }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="员工类别" width="120">
-            <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
-          </el-table-column>
-          <el-table-column label="股数配额" width="130">
-            <template #default="{ row }">{{ fmtInt(row.shares_quota_ads) }}</template>
-          </el-table-column>
-          <el-table-column label="已授予" width="130">
-            <template #default="{ row }">{{ fmtInt(row.shares_used_ads) }}</template>
-          </el-table-column>
-          <el-table-column label="剩余" width="130">
-            <template #default="{ row }">
-              {{ fmtInt(Number(row.shares_quota_ads) - Number(row.shares_used_ads || 0)) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="使用率" width="180">
-            <template #default="{ row }">
-              <el-progress
-                :percentage="pct(row.shares_used_ads, row.shares_quota_ads)"
-                :stroke-width="8"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-tab-pane>
-
-      <el-tab-pane label="年终奖" name="bonus">
-        <el-empty description="本期未启用 / 待后续 sprint" />
-      </el-tab-pane>
-    </el-tabs>
-  </el-container>
+        </el-tab-pane>
+      </el-tabs>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
+import { Money, Present, Trophy } from "@element-plus/icons-vue"
 import api from "@/api/client"
+import PageHeader from "@/components/PageHeader.vue"
+import Toolbar from "@/components/Toolbar.vue"
+import EmptyHint from "@/components/EmptyHint.vue"
+import ComingSoonCard from "@/components/ComingSoonCard.vue"
+import { fmtInt, fmtMoney } from "@/utils/format"
 
 const cycles = ref<any[]>([])
 const cycleId = ref<number | null>(null)
@@ -108,20 +207,17 @@ const loadingLti = ref(false)
 function catLabel(c: string) {
   return c === "MANAGEMENT" ? "管理干部" : "员工"
 }
-function fmt(v: any) {
-  return Number(v || 0).toLocaleString("zh-CN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })
-}
-function fmtInt(v: any) {
-  return Number(v || 0).toLocaleString("zh-CN")
-}
 function pct(used: any, quota: any) {
   const u = Number(used || 0)
   const q = Number(quota || 0)
   if (q <= 0) return 0
   return Math.min(100, Math.round((u / q) * 100))
+}
+function progressStatus(used: any, quota: any): "" | "warning" | "exception" | "success" {
+  const p = pct(used, quota)
+  if (p >= 100) return "exception"
+  if (p >= 90) return "warning"
+  return ""
 }
 
 async function loadCycles() {
@@ -161,3 +257,24 @@ onMounted(async () => {
   await loadAll()
 })
 </script>
+
+<style scoped>
+.my-budget-tabs__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hr-space-1);
+}
+.my-budget-tabs__cell-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hr-space-2);
+}
+:deep(.my-budget-tabs .el-tabs__nav-wrap::after) {
+  background: var(--hr-color-border-light);
+}
+:deep(.my-budget-tabs .el-tabs__item) {
+  font-size: var(--hr-font-size-md);
+  height: 44px;
+  line-height: 44px;
+}
+</style>

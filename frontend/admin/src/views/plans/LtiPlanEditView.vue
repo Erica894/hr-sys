@@ -1,6 +1,10 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px; max-width: 860px">
-    <h3 style="margin: 0 0 16px">{{ isNew ? "新建 RSU 方案" : "编辑 RSU 方案" }}</h3>
+  <div class="hr-page">
+    <PageHeader
+      :title="isNew ? '新建 RSU 方案' : '编辑 RSU 方案'"
+      subtitle="维护授予日、总股数、单价、Cliff、Vesting schedule"
+    />
+    <div class="hr-section" style="max-width: 860px">
     <el-form
       ref="formRef"
       :model="form"
@@ -72,7 +76,8 @@
         <el-button @click="$router.push('/admin/plans/lti')">取消</el-button>
       </el-form-item>
     </el-form>
-  </el-container>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -80,6 +85,7 @@ import { ref, computed, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { ElMessage, type FormInstance } from "element-plus"
 import api from "@/api/client"
+import PageHeader from "@/components/PageHeader.vue"
 
 const route = useRoute()
 const router = useRouter()

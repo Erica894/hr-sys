@@ -1,40 +1,70 @@
 <template>
-  <el-container direction="vertical" style="padding: 16px">
-    <div style="display: flex; align-items: center; margin-bottom: 12px">
-      <h3 style="margin: 0; flex: 1">调薪方案</h3>
-      <el-button type="primary" @click="$router.push('/admin/plans/adjustment/new')">新建</el-button>
+  <div class="hr-page">
+    <PageHeader
+      title="调薪方案"
+      subtitle="HR 维护的调薪方案模板，可用于多个 reward cycle"
+    >
+      <template #actions>
+        <el-button type="primary" :icon="Plus" @click="$router.push('/admin/plans/adjustment/new')">
+          新建方案
+        </el-button>
+      </template>
+    </PageHeader>
+
+    <div class="hr-section hr-section--flush">
+      <el-table :data="rows" stripe v-loading="loading">
+        <el-table-column prop="code" label="编码" width="160">
+          <template #default="{ row }">
+            <span class="hr-text-mono">{{ row.code }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="name" label="名称" min-width="220" />
+        <el-table-column prop="period" label="周期" width="120" />
+        <el-table-column prop="status" label="状态" width="110">
+          <template #default="{ row }">
+            <el-tag :type="tagType(row.status)" effect="plain" size="small">
+              {{ statusLabel(row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="预算总额（CNY）" width="180" align="right">
+          <template #default="{ row }">
+            <span class="hr-text-mono">{{ fmtMoney(row.budget_total_cny) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="created_at" label="创建时间" width="180">
+          <template #default="{ row }">
+            <span class="hr-text-secondary">{{ fmtTime(row.created_at) }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="160" fixed="right">
+          <template #default="{ row }">
+            <el-button link type="primary" @click="$router.push(`/admin/plans/adjustment/${row.id}`)">
+              编辑
+            </el-button>
+            <el-button link type="danger" @click="remove(row)">删除</el-button>
+          </template>
+        </el-table-column>
+        <template #empty>
+          <EmptyHint
+            title="暂无调薪方案"
+            description="点击右上角「新建方案」开始创建"
+            icon="document"
+          />
+        </template>
+      </el-table>
     </div>
-    <el-table :data="rows" border v-loading="loading">
-      <el-table-column prop="code" label="编码" width="140" />
-      <el-table-column prop="name" label="名称" min-width="200" />
-      <el-table-column prop="period" label="周期" width="120" />
-      <el-table-column prop="status" label="状态" width="100">
-        <template #default="{ row }">
-          <el-tag :type="tagType(row.status)">{{ row.status }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="预算总额(CNY)" width="160" align="right">
-        <template #default="{ row }">{{ fmtMoney(row.budget_total_cny) }}</template>
-      </el-table-column>
-      <el-table-column prop="created_at" label="创建时间" width="180">
-        <template #default="{ row }">{{ fmtTime(row.created_at) }}</template>
-      </el-table-column>
-      <el-table-column label="操作" width="160" fixed="right">
-        <template #default="{ row }">
-          <el-button link type="primary" @click="$router.push(`/admin/plans/adjustment/${row.id}`)">
-            编辑
-          </el-button>
-          <el-button link type="danger" @click="remove(row)">删除</el-button>
-        </template>
-      </el-table-column>
-    </el-table>
-  </el-container>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted } from "vue"
 import { ElMessage, ElMessageBox } from "element-plus"
+import { Plus } from "@element-plus/icons-vue"
 import api from "@/api/client"
+import PageHeader from "@/components/PageHeader.vue"
+import EmptyHint from "@/components/EmptyHint.vue"
+import { fmtMoney, fmtTime } from "@/utils/format"
 
 const rows = ref<any[]>([])
 const loading = ref(false)
@@ -51,8 +81,10 @@ async function load() {
 
 async function remove(row: any) {
   try {
-    await ElMessageBox.confirm(`确认删除方案 "${row.name}" ?`, "删除确认", {
+    await ElMessageBox.confirm(`确认删除方案"${row.name}"？`, "删除确认", {
       type: "warning",
+      confirmButtonText: "删除",
+      cancelButtonText: "取消",
     })
   } catch {
     return
@@ -68,14 +100,8 @@ function tagType(s: string) {
   return "warning"
 }
 
-function fmtMoney(v: any) {
-  if (v == null) return "-"
-  return Number(v).toLocaleString("zh-CN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-function fmtTime(v: any) {
-  if (!v) return "-"
-  return new Date(v).toLocaleString("zh-CN")
+function statusLabel(s: string) {
+  return { ACTIVE: "生效中", CLOSED: "已关闭", DRAFT: "草稿" }[s] || s
 }
 
 onMounted(load)
