@@ -82,6 +82,12 @@ class AckView(APIView):
 LTI_CATEGORIES = ["MANAGEMENT", "STAFF"]
 
 
+class _LtiCascadeBlocked(Exception):
+    def __init__(self, payload):
+        self.payload = payload
+        super().__init__(str(payload))
+
+
 class LTIPlanViewSet(viewsets.ModelViewSet):
     queryset = LTIPlan.objects.all().order_by("-id")
     serializer_class = LTIPlanSerializer
@@ -165,25 +171,134 @@ class LTIBudgetView(APIView):
     def put(self, request, plan_id):
         plan = get_object_or_404(LTIPlan, id=plan_id)
         _ensure_company_lti_cells(plan)
-        for row in request.data.get("rows", []):
+        rows = request.data.get("rows", [])
+
+        for row in rows:
             cat = row.get("employee_category_1")
             if cat not in LTI_CATEGORIES:
                 return Response(
                     {"error": f"invalid category: {cat}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            cell = _company_lti_cell(plan, cat)
-            cell.headcount_quota = int(row.get("headcount_quota", cell.headcount_quota))
-            cell.shares_quota_ads = int(row.get("shares_quota_ads", cell.shares_quota_ads))
-            cell.save(update_fields=["headcount_quota", "shares_quota_ads"])
+
+        cascade = []
+        try:
+            with transaction.atomic():
+                for row in rows:
+                    cat = row.get("employee_category_1")
+                    cell = _company_lti_cell(plan, cat)
+                    cell.headcount_quota = int(row.get("headcount_quota", cell.headcount_quota))
+                    cell.shares_quota_ads = int(row.get("shares_quota_ads", cell.shares_quota_ads))
+                    cell.save(update_fields=["headcount_quota", "shares_quota_ads"])
+
+                allocated_map = aggregate_lti_allocated(plan)
+                for cat in LTI_CATEGORIES:
+                    company = _company_lti_cell(plan, cat)
+                    rule = company.distribution_rule
+                    if rule not in ("HEADCOUNT", "SALARY_TOTAL"):
+                        continue
+                    existing_ids = list(
+                        LTIBudgetCell.objects.filter(
+                            plan=plan, employee_category_1=cat,
+                            target_org_unit__isnull=False,
+                        ).values_list("target_org_unit_id", flat=True)
+                    )
+                    if not existing_ids:
+                        continue
+                    distribution = compute_distribution(
+                        total=company.shares_quota_ads,
+                        cat1=cat, mode=rule,
+                        target_unit_ids=existing_ids,
+                        integer_units=True,
+                    )
+                    for ou_id, new_shares in distribution.items():
+                        actual = int(allocated_map.get((ou_id, cat), 0))
+                        if int(new_shares) < actual:
+                            raise _LtiCascadeBlocked({
+                                "employee_category_1": cat,
+                                "target_org_unit_id": ou_id,
+                                "rule": rule,
+                                "requested": int(new_shares),
+                                "already_allocated": actual,
+                            })
+                    for ou_id, new_shares in distribution.items():
+                        LTIBudgetCell.objects.filter(
+                            plan=plan, employee_category_1=cat,
+                            target_org_unit_id=ou_id,
+                        ).update(shares_quota_ads=int(new_shares))
+                    cascade.append({
+                        "employee_category_1": cat,
+                        "rule": rule,
+                        "distribution": {str(k): int(v) for k, v in distribution.items()},
+                    })
+        except _LtiCascadeBlocked as e:
+            return Response(
+                {"error": "DEPT_REDUCE_BELOW_ALLOCATED", "detail": e.payload},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         log_action(
             "UPDATE", request.user, "LTIBudget", plan.id,
-            {}, {"rows": request.data.get("rows", [])},
+            {}, {"rows": rows, "cascade": cascade},
         )
         cells = LTIBudgetCell.objects.filter(
             plan=plan, target_org_unit__isnull=True
         ).order_by("employee_category_1")
-        return Response({"rows": LTIBudgetCellSerializer(cells, many=True).data})
+        return Response({
+            "rows": LTIBudgetCellSerializer(cells, many=True).data,
+            "cascade": cascade,
+        })
+
+
+class PatchLtiTargetsView(APIView):
+    """HR 在已下发部门表里手动微调单格 RSU 股数; 带 allocated 护栏。"""
+    permission_classes = [permissions.IsAuthenticated, IsHRAdmin]
+
+    def patch(self, request, plan_id):
+        plan = get_object_or_404(LTIPlan, id=plan_id)
+        items = request.data.get("targets") or []
+        if not items:
+            return Response({"error": "targets required"}, status=400)
+
+        ids = [int(it.get("id")) for it in items if it.get("id") is not None]
+        cells = list(
+            LTIBudgetCell.objects.filter(
+                id__in=ids, plan=plan, target_org_unit__isnull=False,
+            )
+        )
+        if len(cells) != len(set(ids)):
+            return Response({"error": "unknown or out-of-plan cell id"}, status=400)
+        cells_by_id = {c.id: c for c in cells}
+
+        allocated_map = aggregate_lti_allocated(plan)
+        try:
+            with transaction.atomic():
+                for it in items:
+                    cell = cells_by_id[int(it["id"])]
+                    new_shares = int(it.get("shares_quota_ads", 0))
+                    actual = int(allocated_map.get(
+                        (cell.target_org_unit_id, cell.employee_category_1), 0
+                    ))
+                    if new_shares < actual:
+                        raise _LtiCascadeBlocked({
+                            "employee_category_1": cell.employee_category_1,
+                            "target_org_unit_id": cell.target_org_unit_id,
+                            "requested": new_shares,
+                            "already_allocated": actual,
+                        })
+                    cell.shares_quota_ads = new_shares
+                    cell.save(update_fields=["shares_quota_ads"])
+        except _LtiCascadeBlocked as e:
+            return Response(
+                {"error": "DEPT_REDUCE_BELOW_ALLOCATED", "detail": e.payload},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        log_action(
+            "UPDATE", request.user, "LTIBudgetTargets", plan.id,
+            {}, {"targets": items},
+        )
+        return Response({"ok": True, "updated": len(items)})
 
 
 class DistributeLtiBudgetView(APIView):

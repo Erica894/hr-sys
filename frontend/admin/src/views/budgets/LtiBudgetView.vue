@@ -83,8 +83,19 @@
       <el-table-column label="员工类别" width="120">
         <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
       </el-table-column>
-      <el-table-column label="股数配额" width="130">
-        <template #default="{ row }">{{ fmtInt(row.shares_quota_ads) }}</template>
+      <el-table-column label="股数配额" width="180">
+        <template #default="{ row }">
+          <el-input-number
+            v-model="row.shares_quota_ads"
+            :min="Number(row.shares_used_ads || 0)"
+            :step="100"
+            :precision="0"
+            size="small"
+            controls-position="right"
+            style="width: 100%"
+            @change="markTargetDirty(row)"
+          />
+        </template>
       </el-table-column>
       <el-table-column label="已授予" width="130">
         <template #default="{ row }">{{ fmtInt(row.shares_used_ads) }}</template>
@@ -98,6 +109,23 @@
         <template #default="{ row }">{{ fmtInt(row.reclaimed_shares_ads) }}</template>
       </el-table-column>
     </el-table>
+
+    <div
+      v-if="planId && targets.length"
+      style="margin-top: 12px; display: flex; gap: 12px; align-items: center"
+    >
+      <el-button
+        type="primary"
+        :disabled="!targetDirtyIds.size"
+        :loading="savingTargets"
+        @click="saveTargets"
+      >
+        保存部门微调 ({{ targetDirtyIds.size }})
+      </el-button>
+      <span class="hr-text-secondary" style="font-size: 12px">
+        修改公司层会按规则联动；如需个别部门覆写，直接改上面股数后点保存。
+      </span>
+    </div>
 
     <el-dialog
       v-model="distDialog"
@@ -194,7 +222,7 @@ type LtiTarget = {
   target_org_unit_name: string
   target_org_unit_type: string
   employee_category_1: string
-  shares_quota_ads: number | string
+  shares_quota_ads: number
   shares_used_ads: number | string
   reclaimed_shares_ads: number | string
 }
@@ -207,6 +235,8 @@ const rows = ref<LtiCell[]>([])
 const targets = ref<LtiTarget[]>([])
 const loading = ref(false)
 const saving = ref(false)
+const savingTargets = ref(false)
+const targetDirtyIds = ref<Set<number>>(new Set())
 
 function catLabel(c: string) {
   return c === "MANAGEMENT" ? "管理干部" : "员工"
@@ -244,9 +274,51 @@ async function load() {
           shares_used_ads: 0,
         },
     )
-    targets.value = r.data.targets || []
+    targets.value = (r.data.targets || []).map((t: any) => ({
+      ...t,
+      shares_quota_ads: Number(t.shares_quota_ads),
+    }))
+    targetDirtyIds.value = new Set()
   } finally {
     loading.value = false
+  }
+}
+
+function markTargetDirty(row: LtiTarget) {
+  if (row.id != null) {
+    targetDirtyIds.value = new Set([...targetDirtyIds.value, row.id])
+  }
+}
+
+async function saveTargets() {
+  if (!planId.value || !targetDirtyIds.value.size) return
+  savingTargets.value = true
+  try {
+    const items = targets.value
+      .filter((t) => t.id != null && targetDirtyIds.value.has(t.id))
+      .map((t) => ({ id: t.id, shares_quota_ads: Number(t.shares_quota_ads) }))
+    await api.patch(
+      `/admin/lti-plans/${planId.value}/budget/targets/`,
+      { targets: items },
+    )
+    ElMessage.success(`已保存 ${items.length} 格部门微调`)
+    await load()
+  } catch (e: any) {
+    const detail = e?.response?.data
+    if (detail?.error === "DEPT_REDUCE_BELOW_ALLOCATED") {
+      const d = detail.detail || {}
+      ElMessageBox.alert(
+        `${d.employee_category_1 === "MANAGEMENT" ? "管理干部" : "员工"} ` +
+          `部门 #${d.target_org_unit_id}：要 ${fmtInt(d.requested)} ADS，` +
+          `但已授予 ${fmtInt(d.already_allocated)} ADS。`,
+        "保存被拒绝",
+        { type: "warning" },
+      )
+    } else {
+      ElMessage.error(detail?.error || detail?.detail || "保存失败")
+    }
+  } finally {
+    savingTargets.value = false
   }
 }
 
@@ -261,9 +333,28 @@ async function save() {
         shares_quota_ads: r.shares_quota_ads,
       })),
     }
-    await api.put(`/admin/lti-plans/${planId.value}/budget/`, payload)
-    ElMessage.success("预算已保存")
+    const r = await api.put(`/admin/lti-plans/${planId.value}/budget/`, payload)
+    const cascade = r.data?.cascade || []
+    if (cascade.length) {
+      ElMessage.success(`预算已保存，并按已有规则联动更新 ${cascade.length} 格部门股数`)
+    } else {
+      ElMessage.success("预算已保存")
+    }
     await load()
+  } catch (e: any) {
+    const detail = e?.response?.data
+    if (detail?.error === "DEPT_REDUCE_BELOW_ALLOCATED") {
+      const d = detail.detail || {}
+      ElMessageBox.alert(
+        `${d.employee_category_1 === "MANAGEMENT" ? "管理干部" : "员工"} RSU 联动失败：` +
+          `部门 #${d.target_org_unit_id} 重新分配后股数 ${fmtInt(d.requested)} ADS，` +
+          `但已授予员工 ${fmtInt(d.already_allocated)} ADS。请先调整 Allocation 或上调公司池。`,
+        "保存被拒绝",
+        { type: "warning" },
+      )
+    } else {
+      ElMessage.error(detail?.error || detail?.detail || "保存失败")
+    }
   } finally {
     saving.value = false
   }
@@ -286,9 +377,11 @@ const distCatLabel = computed(() => (distCat.value === "MANAGEMENT" ? "管理干
 const orgTreeData = computed(() => {
   const types = new Set(distTypeFilter.value)
   const filtered = orgUnits.value.filter((o) => types.has(o.type))
+  const filteredIds = new Set(filtered.map((o) => o.id))
   const byParent: Record<string, any[]> = {}
   for (const o of filtered) {
-    const k = String(o.parent_id ?? "ROOT")
+    const parentInScope = o.parent_id != null && filteredIds.has(o.parent_id)
+    const k = parentInScope ? String(o.parent_id) : "ROOT"
     byParent[k] = byParent[k] || []
     byParent[k].push({ id: o.id, name: `${o.name} (${o.type})`, type: o.type, children: [] })
   }
@@ -317,7 +410,7 @@ function orgLabel(id: number) {
 
 async function ensureOrgUnits() {
   if (orgUnits.value.length) return
-  const r = await api.get("/iam/org-units/?type=DEPT,CENTER")
+  const r = await api.get("/auth/org-units/?type=DEPT,CENTER")
   orgUnits.value = r.data
 }
 

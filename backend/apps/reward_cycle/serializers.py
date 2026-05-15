@@ -5,10 +5,16 @@ from apps.reward_cycle.models import RewardCycle
 
 class RewardCycleSerializer(serializers.ModelSerializer):
     budget_year = serializers.SerializerMethodField()
+    category_scheme_code = serializers.CharField(
+        source="category_scheme.code", read_only=True, default=None,
+    )
 
     class Meta:
         model = RewardCycle
-        fields = ["id", "code", "name", "status", "period", "budget_year", "created_at"]
+        fields = [
+            "id", "code", "name", "status", "period", "budget_year",
+            "category_scheme", "category_scheme_code", "created_at",
+        ]
 
     def get_budget_year(self, obj):
         scope = obj.scope or {}

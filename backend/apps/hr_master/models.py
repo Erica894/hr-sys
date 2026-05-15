@@ -50,6 +50,64 @@ class Employee(models.Model):
         db_table = "hr_employee"
 
 
+class CategoryScheme(models.Model):
+    """员工类别方案 (年度可换)。每个 RewardCycle 绑定一个方案。
+
+    桶 (EmployeeCategory) 完全由 HR 自定义，如:
+      - 2026: 干部 / 员工
+      - 2027: 基干 / 中干 / 高干 / 员工
+      - 2028: 干部 / senior员工 / junior员工
+    """
+    code = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=128)
+    status = models.CharField(
+        max_length=16,
+        choices=[("ACTIVE", "启用"), ("ARCHIVED", "归档")],
+        default="ACTIVE",
+    )
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "hr_category_scheme"
+        ordering = ["-created_at"]
+
+
+class EmployeeCategory(models.Model):
+    """方案下的一个桶 (类别码)。"""
+    scheme = models.ForeignKey(
+        CategoryScheme, on_delete=models.CASCADE, related_name="categories"
+    )
+    code = models.CharField(max_length=32, help_text="方案内唯一, 如 MGMT/STAFF/SENIOR/JUNIOR")
+    name = models.CharField(max_length=64, help_text="如 干部/员工/高级员工")
+    sort_order = models.IntegerField(default=0)
+
+    class Meta:
+        db_table = "hr_employee_category"
+        ordering = ["scheme_id", "sort_order"]
+        unique_together = [("scheme", "code")]
+
+
+class EmployeeCategoryAssignment(models.Model):
+    """员工 × 方案 → 类别桶的指派。"""
+    employee = models.ForeignKey(
+        Employee, on_delete=models.CASCADE, related_name="category_assignments"
+    )
+    scheme = models.ForeignKey(
+        CategoryScheme, on_delete=models.CASCADE, related_name="assignments"
+    )
+    category = models.ForeignKey(
+        EmployeeCategory, on_delete=models.PROTECT, related_name="assignments"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "hr_employee_category_assignment"
+        unique_together = [("employee", "scheme")]
+        indexes = [models.Index(fields=["scheme", "category"])]
+
+
 class JobGrade(models.Model):
     level = models.CharField(max_length=32, unique=True)
     band = models.CharField(max_length=32, blank=True)

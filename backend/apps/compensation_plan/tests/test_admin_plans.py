@@ -47,8 +47,6 @@ def test_hr_can_create(hr):
         "name": "2026 测试调薪方案",
         "period": "2026",
         "status": "DRAFT",
-        "budget_total_cny": "1000000.00",
-        "scope": {"dept": "ALL"},
         "formula": {"rule": "flat"},
         "rounding_rule": "ROUND_HALF_UP",
     }
@@ -56,6 +54,10 @@ def test_hr_can_create(hr):
     assert r.status_code == 201, r.data
     assert r.data["code"] == "ADJ-2026-TEST"
     assert AdjustmentPlan.objects.filter(code="ADJ-2026-TEST").exists()
+    # 默认 perf_grades 由模型默认值给出
+    plan = AdjustmentPlan.objects.get(code="ADJ-2026-TEST")
+    assert len(plan.perf_grades) == 5
+    assert plan.perf_grades[0]["code"] == "STAR_5"
 
 
 def test_hr_can_update(hr):

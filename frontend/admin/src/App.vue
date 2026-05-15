@@ -17,6 +17,14 @@
         >
           <!-- HR_ADMIN 菜单 -->
           <template v-if="isAdmin">
+            <el-sub-menu index="admin-categories">
+              <template #title>
+                <el-icon><Collection /></el-icon>
+                <span>员工类别</span>
+              </template>
+              <el-menu-item index="/admin/categories/schemes">类别方案</el-menu-item>
+              <el-menu-item index="/admin/categories/assignments">员工赋类别</el-menu-item>
+            </el-sub-menu>
             <el-sub-menu index="admin-plans">
               <template #title>
                 <el-icon><Document /></el-icon>
@@ -31,8 +39,6 @@
                 <el-icon><Money /></el-icon>
                 <span>预算管理</span>
               </template>
-              <el-menu-item index="/admin/budgets/adjustment">调薪预算</el-menu-item>
-              <el-menu-item index="/admin/budgets/lti">RSU 预算</el-menu-item>
               <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/admin/org">
@@ -126,6 +132,7 @@ import { useAuth } from "@/stores/auth"
 import {
   CaretBottom,
   CircleCheck,
+  Collection,
   DataLine,
   Document,
   Histogram,

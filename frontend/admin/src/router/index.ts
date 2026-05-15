@@ -40,6 +40,18 @@ const routes = [
     meta: { requiresAdmin: true },
   },
 
+  // HR_ADMIN: 类别方案
+  {
+    path: "/admin/categories/schemes",
+    component: () => import("@/views/categories/CategorySchemeView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/categories/assignments",
+    component: () => import("@/views/categories/AssignmentView.vue"),
+    meta: { requiresAdmin: true },
+  },
+
   // HR_ADMIN: 方案设计
   {
     path: "/admin/plans/adjustment",

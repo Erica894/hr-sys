@@ -2,15 +2,30 @@ from django.db import models
 from apps.hr_master.models import Employee
 
 
+DEFAULT_PERF_GRADES = [
+    {"code": "STAR_5", "label": "5星", "sort_order": 1},
+    {"code": "STAR_4", "label": "4星", "sort_order": 2},
+    {"code": "STAR_3", "label": "3星", "sort_order": 3},
+    {"code": "STAR_2", "label": "2星", "sort_order": 4},
+    {"code": "STAR_1", "label": "1星", "sort_order": 5},
+]
+
+
+def default_perf_grades():
+    return [dict(g) for g in DEFAULT_PERF_GRADES]
+
+
 class AdjustmentPlan(models.Model):
     code = models.CharField(max_length=32, unique=True)
     name = models.CharField(max_length=128)
     period = models.CharField(max_length=16)
     status = models.CharField(max_length=32, default="DRAFT")
-    budget_total_cny = models.DecimalField(max_digits=16, decimal_places=2, default=0)
-    scope = models.JSONField(default=dict)
     formula = models.JSONField(default=dict)
     rounding_rule = models.CharField(max_length=16, default="ROUND_HALF_UP")
+    perf_grades = models.JSONField(
+        default=default_perf_grades,
+        help_text="绩效档位列表 [{code, label, sort_order}], 默认 5 档 (5 星 -> 1 星)",
+    )
     created_by_id = models.BigIntegerField(null=True)
     reward_cycle = models.ForeignKey(
         "reward_cycle.RewardCycle", null=True, blank=True,
@@ -58,6 +73,72 @@ class AdjustmentBudgetCell(models.Model):
         return self.budget_amount_cny - self.allocated_amount_cny
 
 
+class RegionalAdjustmentRule(models.Model):
+    """区域基准调薪比例 (按 LegalEntity.country)。
+
+    层 1 规则的一部分：每个 (周期, 国家, 调薪类型) 给一个基准比例，例如:
+      - CN / ANNUAL = 5.0%
+      - US / ANNUAL = 3.5%
+      - SG / PROMOTION = 8.0%
+    最终员工调薪比例 = base_pct × category_factor。
+    """
+    ADJ_TYPE = [("ANNUAL", "年度调薪"), ("PROMOTION", "晋升调薪")]
+
+    reward_cycle = models.ForeignKey(
+        "reward_cycle.RewardCycle", on_delete=models.CASCADE,
+        related_name="regional_adjustment_rules",
+    )
+    country = models.CharField(max_length=8, help_text="LegalEntity.country, 如 CN / US / SG")
+    adjustment_type = models.CharField(max_length=16, choices=ADJ_TYPE)
+    base_pct = models.DecimalField(
+        max_digits=6, decimal_places=4,
+        help_text="例如 0.0500 表示 5%",
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "comp_regional_adjustment_rule"
+        unique_together = [("reward_cycle", "country", "adjustment_type")]
+        indexes = [models.Index(fields=["reward_cycle", "adjustment_type"])]
+
+
+class EmployeeCategoryFactor(models.Model):
+    """员工类别调节系数 (在 RegionalAdjustmentRule 基础上叠乘)。
+
+    每个 (周期, 类别桶, 调薪类型) 给一个系数，例如:
+      - 干部 / ANNUAL = 1.2 (干部年度调薪比基准高 20%)
+      - 员工 / ANNUAL = 1.0
+    最终员工调薪比例 = base_pct(country, type) × factor(category, type)。
+    `category` 必须属于 `reward_cycle.category_scheme`。
+    """
+    ADJ_TYPE = [("ANNUAL", "年度调薪"), ("PROMOTION", "晋升调薪")]
+
+    reward_cycle = models.ForeignKey(
+        "reward_cycle.RewardCycle", on_delete=models.CASCADE,
+        related_name="category_factors",
+    )
+    category = models.ForeignKey(
+        "hr_master.EmployeeCategory", on_delete=models.PROTECT,
+        related_name="adjustment_factors",
+    )
+    adjustment_type = models.CharField(max_length=16, choices=ADJ_TYPE)
+    factor = models.DecimalField(
+        max_digits=6, decimal_places=4,
+        help_text="乘在基准比例之上, 1.0000 = 不调整",
+        default=1,
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "comp_employee_category_factor"
+        unique_together = [("reward_cycle", "category", "adjustment_type")]
+        indexes = [models.Index(fields=["reward_cycle", "adjustment_type"])]
+
+
 class AdjustmentProposal(models.Model):
     plan = models.ForeignKey(AdjustmentPlan, on_delete=models.CASCADE, related_name="proposals")
     employee = models.ForeignKey(Employee, on_delete=models.CASCADE)
@@ -98,3 +179,38 @@ class AdjustmentProposal(models.Model):
     @property
     def proposed_salary(self):
         return self.current_salary * (1 + self.total_adjustment_pct)
+
+
+class AdjustmentMatrixCell(models.Model):
+    """调薪矩阵单元格：在规则派生的基础调薪比例之上叠加"调节系数区间"。
+
+    维度：cycle × category × perf_grade × pay_band → [coef_low, coef_high]。
+    个人建议年度调薪区间 = base_pct × factor × [coef_low, coef_high]。
+    perf_grade_code 必须在所属方案 `AdjustmentPlan.perf_grades` 列表中。
+    """
+    PAY_BAND_CHOICES = [
+        ("BELOW_P50", "P50 以下"),
+        ("P50_P75", "P50 - P75"),
+        ("ABOVE_P75", "P75 以上"),
+    ]
+
+    reward_cycle = models.ForeignKey(
+        "reward_cycle.RewardCycle", on_delete=models.CASCADE,
+        related_name="adjustment_matrix_cells",
+    )
+    category = models.ForeignKey(
+        "hr_master.EmployeeCategory", on_delete=models.PROTECT,
+        related_name="adjustment_matrix_cells",
+    )
+    perf_grade_code = models.CharField(max_length=32)
+    pay_band = models.CharField(max_length=16, choices=PAY_BAND_CHOICES)
+    coef_low = models.DecimalField(max_digits=5, decimal_places=4)
+    coef_high = models.DecimalField(max_digits=5, decimal_places=4)
+    notes = models.CharField(max_length=200, blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "comp_adjustment_matrix_cell"
+        unique_together = [("reward_cycle", "category", "perf_grade_code", "pay_band")]
+        indexes = [models.Index(fields=["reward_cycle", "category"])]

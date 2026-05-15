@@ -8,11 +8,20 @@ from rest_framework.permissions import IsAuthenticated
 from apps.iam.permissions import IsHRAdmin
 from apps.iam.scoping import resolve_user_org_scope
 from apps.iam.models import OrgUnit
-from apps.compensation_plan.models import AdjustmentPlan, AdjustmentBudgetCell
+from apps.compensation_plan.models import (
+    AdjustmentPlan,
+    AdjustmentBudgetCell,
+    AdjustmentMatrixCell,
+    RegionalAdjustmentRule,
+    EmployeeCategoryFactor,
+)
 from apps.compensation_plan.serializers import (
     AdjustmentPlanSerializer,
     AdjustmentBudgetCellSerializer,
+    AdjustmentMatrixCellSerializer,
     TargetAdjustmentBudgetCellSerializer,
+    RegionalAdjustmentRuleSerializer,
+    EmployeeCategoryFactorSerializer,
 )
 from apps.compensation_plan.services.budget_distribution import compute_distribution
 from apps.compensation_plan.services.budget_aggregation import (
@@ -25,6 +34,12 @@ from apps.audit.services import log_action
 
 ADJ_TYPES = ["ANNUAL", "PROMOTION"]
 CATEGORIES = ["MANAGEMENT", "STAFF"]
+
+
+class _CascadeBlocked(Exception):
+    def __init__(self, payload):
+        self.payload = payload
+        super().__init__(str(payload))
 
 
 class AdjustmentPlanViewSet(viewsets.ModelViewSet):
@@ -121,6 +136,7 @@ class AdjustmentBudgetView(APIView):
         cycle = get_object_or_404(RewardCycle, id=cycle_id)
         _ensure_company_cells(cycle)
         rows = request.data.get("rows", [])
+
         for row in rows:
             adj = row.get("adjustment_type")
             cat = row.get("employee_category_1")
@@ -129,18 +145,131 @@ class AdjustmentBudgetView(APIView):
                     {"error": f"invalid adjustment_type/category: {adj}/{cat}"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            cell = _company_cell(cycle, adj, cat)
-            cell.budget_amount_cny = Decimal(str(row.get("budget_amount_cny", 0)))
-            cell.save(update_fields=["budget_amount_cny"])
+
+        cascade = []
+        try:
+            with transaction.atomic():
+                for row in rows:
+                    adj = row.get("adjustment_type")
+                    cat = row.get("employee_category_1")
+                    cell = _company_cell(cycle, adj, cat)
+                    cell.budget_amount_cny = Decimal(str(row.get("budget_amount_cny", 0)))
+                    cell.save(update_fields=["budget_amount_cny"])
+
+                allocated_map = aggregate_adjustment_allocated(cycle)
+                for adj in ADJ_TYPES:
+                    for cat in CATEGORIES:
+                        company = _company_cell(cycle, adj, cat)
+                        rule = company.distribution_rule
+                        if rule not in ("HEADCOUNT", "SALARY_TOTAL"):
+                            continue
+                        existing_ids = list(
+                            AdjustmentBudgetCell.objects.filter(
+                                reward_cycle=cycle, adjustment_type=adj,
+                                employee_category_1=cat, department__isnull=False,
+                            ).values_list("department_id", flat=True)
+                        )
+                        if not existing_ids:
+                            continue
+                        distribution = compute_distribution(
+                            total=company.budget_amount_cny,
+                            cat1=cat, mode=rule,
+                            target_unit_ids=existing_ids,
+                        )
+                        for ou_id, new_amount in distribution.items():
+                            actual = allocated_map.get((ou_id, adj, cat), Decimal("0"))
+                            if new_amount < actual:
+                                raise _CascadeBlocked({
+                                    "adjustment_type": adj,
+                                    "employee_category_1": cat,
+                                    "target_org_unit_id": ou_id,
+                                    "rule": rule,
+                                    "requested": str(new_amount),
+                                    "already_allocated": str(actual),
+                                })
+                        for ou_id, new_amount in distribution.items():
+                            AdjustmentBudgetCell.objects.filter(
+                                reward_cycle=cycle, adjustment_type=adj,
+                                employee_category_1=cat, department_id=ou_id,
+                            ).update(budget_amount_cny=new_amount)
+                        cascade.append({
+                            "adjustment_type": adj,
+                            "employee_category_1": cat,
+                            "rule": rule,
+                            "distribution": {str(k): str(v) for k, v in distribution.items()},
+                        })
+        except _CascadeBlocked as e:
+            return Response(
+                {"error": "DEPT_REDUCE_BELOW_ALLOCATED", "detail": e.payload},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         log_action(
             event="UPDATE", actor=request.user,
             resource_type="AdjustmentBudget", resource_id=cycle.id,
-            before={}, after={"rows": rows},
+            before={}, after={"rows": rows, "cascade": cascade},
         )
         company_cells = AdjustmentBudgetCell.objects.filter(
             reward_cycle=cycle, department__isnull=True
         ).order_by("adjustment_type", "employee_category_1")
-        return Response({"rows": AdjustmentBudgetCellSerializer(company_cells, many=True).data})
+        return Response({
+            "rows": AdjustmentBudgetCellSerializer(company_cells, many=True).data,
+            "cascade": cascade,
+        })
+
+
+class PatchAdjustmentTargetsView(APIView):
+    """HR 在已下发部门表里手动微调单格金额; 带 allocated 护栏。"""
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def patch(self, request, cycle_id):
+        cycle = get_object_or_404(RewardCycle, id=cycle_id)
+        items = request.data.get("targets") or []
+        if not items:
+            return Response({"error": "targets required"}, status=400)
+
+        ids = [int(it.get("id")) for it in items if it.get("id") is not None]
+        cells = list(
+            AdjustmentBudgetCell.objects.filter(
+                id__in=ids, reward_cycle=cycle, department__isnull=False,
+            )
+        )
+        if len(cells) != len(set(ids)):
+            return Response({"error": "unknown or out-of-cycle cell id"}, status=400)
+        cells_by_id = {c.id: c for c in cells}
+
+        allocated_map = aggregate_adjustment_allocated(cycle)
+        try:
+            with transaction.atomic():
+                for it in items:
+                    cell = cells_by_id[int(it["id"])]
+                    new_amount = Decimal(str(it.get("budget_amount_cny", 0)))
+                    actual = allocated_map.get(
+                        (cell.department_id, cell.adjustment_type, cell.employee_category_1),
+                        Decimal("0"),
+                    )
+                    if new_amount < actual:
+                        raise _CascadeBlocked({
+                            "adjustment_type": cell.adjustment_type,
+                            "employee_category_1": cell.employee_category_1,
+                            "target_org_unit_id": cell.department_id,
+                            "requested": str(new_amount),
+                            "already_allocated": str(actual),
+                        })
+                    cell.budget_amount_cny = new_amount
+                    cell.save(update_fields=["budget_amount_cny"])
+        except _CascadeBlocked as e:
+            return Response(
+                {"error": "DEPT_REDUCE_BELOW_ALLOCATED", "detail": e.payload},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        log_action(
+            event="UPDATE", actor=request.user,
+            resource_type="AdjustmentBudgetTargets", resource_id=cycle.id,
+            before={}, after={"targets": items},
+        )
+        return Response({"ok": True, "updated": len(items)})
 
 
 class DistributeAdjustmentBudgetView(APIView):
@@ -288,3 +417,52 @@ class MyAdjustmentBudgetView(APIView):
             "cycle_id": cycle.id,
             "targets": TargetAdjustmentBudgetCellSerializer(cells, many=True).data,
         })
+
+
+class RegionalAdjustmentRuleViewSet(viewsets.ModelViewSet):
+    """层 1 规则 - 区域基准比例 CRUD."""
+    queryset = RegionalAdjustmentRule.objects.all()
+    serializer_class = RegionalAdjustmentRuleSerializer
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by("country", "adjustment_type")
+        cycle = self.request.query_params.get("cycle")
+        if cycle:
+            qs = qs.filter(reward_cycle_id=cycle)
+        return qs
+
+
+class EmployeeCategoryFactorViewSet(viewsets.ModelViewSet):
+    """层 1 规则 - 员工类别系数 CRUD."""
+    queryset = EmployeeCategoryFactor.objects.all().select_related(
+        "category", "category__scheme"
+    )
+    serializer_class = EmployeeCategoryFactorSerializer
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by("category__sort_order", "adjustment_type")
+        cycle = self.request.query_params.get("cycle")
+        if cycle:
+            qs = qs.filter(reward_cycle_id=cycle)
+        return qs
+
+
+class AdjustmentMatrixCellViewSet(viewsets.ModelViewSet):
+    """层 2 调薪矩阵单元格 CRUD - 按 cycle/category 过滤。"""
+    queryset = AdjustmentMatrixCell.objects.all().select_related("category")
+    serializer_class = AdjustmentMatrixCellSerializer
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset().order_by(
+            "category__sort_order", "perf_grade_code", "pay_band",
+        )
+        cycle = self.request.query_params.get("cycle")
+        category = self.request.query_params.get("category")
+        if cycle:
+            qs = qs.filter(reward_cycle_id=cycle)
+        if category:
+            qs = qs.filter(category_id=category)
+        return qs

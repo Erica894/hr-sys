@@ -112,7 +112,7 @@ class Command(BaseCommand):
         adj_plan, _ = AdjustmentPlan.objects.get_or_create(
             code="ADJ-2026-01",
             defaults={"name": "2026调薪方案", "period": "2026", "status": "DRAFT",
-                      "budget_total_cny": 500000, "reward_cycle": cycle},
+                      "reward_cycle": cycle},
         )
         if not cycle.linked_adjustment_plan:
             cycle.linked_adjustment_plan = adj_plan
@@ -122,6 +122,7 @@ class Command(BaseCommand):
             for c in ["MANAGEMENT", "STAFF"]:
                 AdjustmentBudgetCell.objects.get_or_create(
                     reward_cycle=cycle, adjustment_type=t, employee_category_1=c,
+                    department=None,
                     defaults={"budget_amount_cny": 125000},
                 )
 
@@ -139,6 +140,7 @@ class Command(BaseCommand):
         for c in ["MANAGEMENT", "STAFF"]:
             LTIBudgetCell.objects.get_or_create(
                 plan=lti_plan, employee_category_1=c,
+                target_org_unit=None,
                 defaults={"headcount_quota": 3, "shares_quota_ads": 25000},
             )
 
