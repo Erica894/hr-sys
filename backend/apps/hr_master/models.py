@@ -10,6 +10,10 @@ class LegalEntity(models.Model):
     default_currency = models.CharField(max_length=8, default="CNY")
     tax_id = models.CharField(max_length=64, blank=True)
     address = models.TextField(blank=True)
+    fixed_pay_months_per_year = models.DecimalField(
+        max_digits=4, decimal_places=2, default=12,
+        help_text="法定固薪月数：中国大陆 12，香港 13，西班牙/希腊 14",
+    )
 
     class Meta:
         db_table = "hr_legal_entity"
@@ -45,9 +49,22 @@ class Employee(models.Model):
     participates_annual_adjustment = models.BooleanField(default=True)
     employee_category_1 = models.CharField(max_length=16, choices=CATEGORY1, default="STAFF")
     employee_category_2 = models.CharField(max_length=32, blank=True)
+    pay_months_per_year_override = models.DecimalField(
+        max_digits=4, decimal_places=2, null=True, blank=True,
+        help_text="个别合同覆盖法人主体默认值；NULL 表示走 legal_entity.fixed_pay_months_per_year",
+    )
 
     class Meta:
         db_table = "hr_employee"
+
+    @property
+    def effective_pay_months_per_year(self):
+        from decimal import Decimal
+        if self.pay_months_per_year_override is not None:
+            return self.pay_months_per_year_override
+        if self.legal_entity_id and self.legal_entity.fixed_pay_months_per_year is not None:
+            return self.legal_entity.fixed_pay_months_per_year
+        return Decimal("12")
 
 
 class CategoryScheme(models.Model):
