@@ -105,6 +105,11 @@ const routes = [
     component: () => import("@/views/budgets/MyBudgetView.vue"),
     meta: { requiresAnyRole: ["DEPT_HEAD", "CENTER_HEAD", "HR_ADMIN"] },
   },
+  {
+    path: "/admin/budgets/derived-overview",
+    component: () => import("@/views/budgets/DerivedOverviewView.vue"),
+    meta: { requiresAdmin: true },
+  },
 
   // HR_ADMIN: 其他
   {

@@ -214,3 +214,38 @@ class AdjustmentMatrixCell(models.Model):
         db_table = "comp_adjustment_matrix_cell"
         unique_together = [("reward_cycle", "category", "perf_grade_code", "pay_band")]
         indexes = [models.Index(fields=["reward_cycle", "category"])]
+
+
+class BudgetOverride(models.Model):
+    """部门池派生预算的人工覆盖值 (Sprint 2 兜底通道)。
+
+    派生总览的部门池金额默认 = 规则自下而上派生 (source=DERIVED)。
+    HR 在派生值不合理时，可上传 Excel 用 override_amount_cny 覆盖该部门 + 调薪类型的池金额，
+    系统记 source=IMPORTED。护栏: override 不能低于该 (cycle, dept, adj_type) 已分配额。
+    """
+    ADJ_TYPE = [("ANNUAL", "年度调薪"), ("PROMOTION", "晋升调薪")]
+    SOURCE = [("IMPORTED", "已导入"), ("DERIVED", "派生")]
+
+    reward_cycle = models.ForeignKey(
+        "reward_cycle.RewardCycle", on_delete=models.CASCADE,
+        related_name="budget_overrides",
+    )
+    department = models.ForeignKey(
+        "iam.OrgUnit", on_delete=models.CASCADE,
+        related_name="budget_overrides",
+        help_text="必须 type=DEPT；不允许 NULL (未分配部门不可覆盖)",
+    )
+    adjustment_type = models.CharField(max_length=16, choices=ADJ_TYPE)
+    override_amount_cny = models.DecimalField(max_digits=16, decimal_places=2)
+    source = models.CharField(max_length=16, choices=SOURCE, default="IMPORTED")
+    uploaded_by = models.ForeignKey(
+        "iam.User", null=True, blank=True, on_delete=models.SET_NULL,
+        related_name="budget_overrides_uploaded",
+    )
+    uploaded_at = models.DateTimeField(auto_now=True)
+    notes = models.CharField(max_length=200, blank=True, default="")
+
+    class Meta:
+        db_table = "comp_budget_override"
+        unique_together = [("reward_cycle", "department", "adjustment_type")]
+        indexes = [models.Index(fields=["reward_cycle", "adjustment_type"])]

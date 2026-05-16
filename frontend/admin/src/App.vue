@@ -40,6 +40,7 @@
                 <span>预算管理</span>
               </template>
               <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
+              <el-menu-item index="/admin/budgets/derived-overview">派生预算总览</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/admin/org">
               <el-icon><OfficeBuilding /></el-icon>

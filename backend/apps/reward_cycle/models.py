@@ -24,6 +24,11 @@ class RewardCycle(models.Model):
     created_by_id = models.BigIntegerField(null=True)
     created_at = models.DateTimeField(auto_now_add=True)
     executed_at = models.DateTimeField(null=True, blank=True)
+    discretionary_pct = models.DecimalField(
+        max_digits=5, decimal_places=4,
+        default=0.1,
+        help_text="部门 head 机动盘占预算池比例 (默认 10%); 矩阵建议占 1-discretionary_pct",
+    )
 
     class Meta:
         db_table = "reward_cycle"

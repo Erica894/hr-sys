@@ -1,5 +1,6 @@
 from decimal import Decimal
 from django.db import transaction
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status
 from rest_framework.views import APIView
@@ -12,6 +13,7 @@ from apps.compensation_plan.models import (
     AdjustmentPlan,
     AdjustmentBudgetCell,
     AdjustmentMatrixCell,
+    BudgetOverride,
     RegionalAdjustmentRule,
     EmployeeCategoryFactor,
 )
@@ -26,6 +28,12 @@ from apps.compensation_plan.serializers import (
 from apps.compensation_plan.services.budget_distribution import compute_distribution
 from apps.compensation_plan.services.budget_aggregation import (
     aggregate_adjustment_allocated,
+)
+from apps.compensation_plan.services.budget_derivation import derive_budget
+from apps.compensation_plan.services.budget_override_import import (
+    ImportError as OverrideImportError,
+    build_template_xlsx,
+    import_overrides,
 )
 from apps.compensation_plan.services.org_targets import validate_target_set
 from apps.reward_cycle.models import RewardCycle
@@ -447,6 +455,130 @@ class EmployeeCategoryFactorViewSet(viewsets.ModelViewSet):
         if cycle:
             qs = qs.filter(reward_cycle_id=cycle)
         return qs
+
+
+class DerivedBudgetView(APIView):
+    """派生预算总览: 部门池 + (country × category × type) 切片的月度增量额。"""
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def get(self, request, cycle_id):
+        cycle = get_object_or_404(RewardCycle, id=cycle_id)
+        result = derive_budget(cycle)
+        rows = []
+        for r in result["rows"]:
+            rows.append({
+                **r,
+                "salary_sum_cny": str(r["salary_sum_cny"]),
+                "base_pct": str(r["base_pct"]) if r["base_pct"] is not None else None,
+                "factor": str(r["factor"]) if r["factor"] is not None else None,
+                "derived_amount_cny": str(r["derived_amount_cny"]),
+            })
+        departments = []
+        for d in result["departments"]:
+            departments.append({
+                **d,
+                "derived_annual_cny": str(d["derived_annual_cny"]),
+                "derived_promotion_cny": str(d["derived_promotion_cny"]),
+                "derived_total_cny": str(d["derived_total_cny"]),
+                "override_annual_cny": str(d["override_annual_cny"]) if d["override_annual_cny"] is not None else None,
+                "override_promotion_cny": str(d["override_promotion_cny"]) if d["override_promotion_cny"] is not None else None,
+                "effective_annual_cny": str(d["effective_annual_cny"]),
+                "effective_promotion_cny": str(d["effective_promotion_cny"]),
+                "effective_total_cny": str(d["effective_total_cny"]),
+                "matrix_annual_cny": str(d["matrix_annual_cny"]),
+                "matrix_promotion_cny": str(d["matrix_promotion_cny"]),
+                "matrix_pool_cny": str(d["matrix_pool_cny"]),
+                "discretionary_annual_cny": str(d["discretionary_annual_cny"]),
+                "discretionary_promotion_cny": str(d["discretionary_promotion_cny"]),
+                "discretionary_pool_cny": str(d["discretionary_pool_cny"]),
+            })
+        return Response({
+            "cycle_id": cycle.id,
+            "cycle_code": cycle.code,
+            "departments": departments,
+            "rows": rows,
+            "total_derived_cny": str(result["total_derived_cny"]),
+            "total_effective_cny": str(result["total_effective_cny"]),
+            "total_matrix_cny": str(result["total_matrix_cny"]),
+            "total_discretionary_cny": str(result["total_discretionary_cny"]),
+            "discretionary_pct": str(result["discretionary_pct"]),
+            "skipped_no_salary_count": result["skipped_no_salary_count"],
+            "skipped_no_country_count": result["skipped_no_country_count"],
+            "employee_total": result["employee_total"],
+        })
+
+
+class BudgetOverrideTemplateView(APIView):
+    """下载批量导入空模板 (.xlsx)。"""
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def get(self, request, cycle_id):
+        get_object_or_404(RewardCycle, id=cycle_id)
+        content = build_template_xlsx()
+        resp = HttpResponse(
+            content,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        resp["Content-Disposition"] = (
+            f'attachment; filename="budget-override-template-cycle-{cycle_id}.xlsx"'
+        )
+        return resp
+
+
+class BudgetOverrideImportView(APIView):
+    """批量导入部门池 override 值。整批校验失败 → 整批拒绝 + 行级错误清单。"""
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def post(self, request, cycle_id):
+        cycle = get_object_or_404(RewardCycle, id=cycle_id)
+        upload = request.FILES.get("file")
+        if not upload:
+            return Response(
+                {"detail": "缺少 file 字段"}, status=status.HTTP_400_BAD_REQUEST
+            )
+        try:
+            result = import_overrides(cycle, upload.read(), request.user)
+        except OverrideImportError as exc:
+            return Response(
+                {"detail": "校验失败", "errors": exc.errors},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        log_action(
+            event="budget_override.import",
+            actor=request.user,
+            resource_type="reward_cycle",
+            resource_id=cycle.id,
+            before={},
+            after=result,
+        )
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class BudgetOverrideClearView(APIView):
+    """清空指定 (dept, adj_type) 的 override → 回到 DERIVED。"""
+    permission_classes = [IsAuthenticated, IsHRAdmin]
+
+    def delete(self, request, cycle_id):
+        cycle = get_object_or_404(RewardCycle, id=cycle_id)
+        dept_id = request.query_params.get("department_id")
+        adj = request.query_params.get("adjustment_type")
+        if not dept_id or adj not in ("ANNUAL", "PROMOTION"):
+            return Response(
+                {"detail": "department_id + adjustment_type 必填"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        deleted, _ = BudgetOverride.objects.filter(
+            reward_cycle=cycle, department_id=dept_id, adjustment_type=adj,
+        ).delete()
+        log_action(
+            event="budget_override.clear",
+            actor=request.user,
+            resource_type="reward_cycle",
+            resource_id=cycle.id,
+            before={},
+            after={"department_id": int(dept_id), "adjustment_type": adj, "deleted": deleted},
+        )
+        return Response({"deleted": deleted})
 
 
 class AdjustmentMatrixCellViewSet(viewsets.ModelViewSet):
