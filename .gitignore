@@ -8,3 +8,8 @@ dist/
 .venv/
 venv/
 *.log
+
+# Local dev / personal
+.claude/
+dev.bat
+backend/output.txt
