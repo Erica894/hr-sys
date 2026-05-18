@@ -20,9 +20,11 @@
   --hr-color-text-hint:      #9ca3af;
   --hr-color-text-on-dark:   #f9fafb;
 
-  --hr-color-brand:          #1e5fbf;
-  --hr-color-brand-hover:    #1a52a3;
-  --hr-color-brand-light:    #e8f1ff;
+  --hr-color-brand:          #1d4380;
+  --hr-color-brand-hover:    #163563;
+  --hr-color-brand-light:    #e8eef8;
+  --hr-color-brand-deep:     #0f2a52;
+  --hr-color-brand-accent:   #4f8eff;
 
   --hr-color-success:        #10b981;
   --hr-color-success-light:  #d1fae5;
@@ -32,13 +34,25 @@
   --hr-color-danger-light:   #fee2e2;
   --hr-color-info:           #6b7280;
 
-  /* 侧边栏专用 */
-  --hr-color-sidebar-bg:        #1e293b;
-  --hr-color-sidebar-bg-hover:  #273449;
-  --hr-color-sidebar-bg-active: #0f172a;
-  --hr-color-sidebar-text:      #cbd5e1;
+  /* 侧边栏专用 (Workday navy) */
+  --hr-color-sidebar-bg:        #0f2a52;
+  --hr-color-sidebar-bg-hover:  #163563;
+  --hr-color-sidebar-bg-active: #08193d;
+  --hr-color-sidebar-text:      #c7d3e8;
   --hr-color-sidebar-text-active: #ffffff;
-  --hr-color-sidebar-accent:    #3b82f6;
+  --hr-color-sidebar-accent:    #4f8eff;
+
+  /* 顶部 header (Workday deep blue) */
+  --hr-color-topbar-bg:         #1d4380;
+  --hr-color-topbar-text:       #ffffff;
+  --hr-color-topbar-text-hint:  rgba(255, 255, 255, 0.65);
+  --hr-color-topbar-hover:      rgba(255, 255, 255, 0.08);
+
+  /* KPI 渐变 (Workday 4 色) */
+  --hr-gradient-kpi-blue:    linear-gradient(135deg, #4f8eff 0%, #1d4380 100%);
+  --hr-gradient-kpi-red:     linear-gradient(135deg, #f47b6e 0%, #c53b50 100%);
+  --hr-gradient-kpi-green:   linear-gradient(135deg, #5ec78a 0%, #1f7a4a 100%);
+  --hr-gradient-kpi-orange:  linear-gradient(135deg, #f5b958 0%, #c5832a 100%);
 
   /* ===== 间距（4 倍数） ===== */
   --hr-space-1:  4px;

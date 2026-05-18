@@ -263,14 +263,14 @@ function onCommand(cmd: string) {
   margin-right: var(--hr-space-2);
 }
 
-/* ===== 顶部 header ===== */
+/* ===== 顶部 header (Workday) ===== */
 .app-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--hr-color-bg-surface);
-  border-bottom: 1px solid var(--hr-color-border-light);
-  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
+  background: var(--hr-color-topbar-bg);
+  border-bottom: none;
+  box-shadow: 0 2px 8px rgba(8, 25, 61, 0.18);
   height: 56px;
   padding: 0 var(--hr-space-6);
 }
@@ -281,7 +281,7 @@ function onCommand(cmd: string) {
   gap: var(--hr-space-2);
   font-weight: var(--hr-font-weight-semibold);
   font-size: var(--hr-font-size-md);
-  color: var(--hr-color-text-primary);
+  color: var(--hr-color-topbar-text);
 }
 
 .app-header__user {
@@ -295,11 +295,11 @@ function onCommand(cmd: string) {
 }
 
 .app-header__user:hover {
-  background: var(--hr-color-bg-hover);
+  background: var(--hr-color-topbar-hover);
 }
 
 .app-header__avatar {
-  background: var(--hr-color-brand) !important;
+  background: var(--hr-color-brand-accent) !important;
   color: #fff;
   font-weight: var(--hr-font-weight-semibold);
 }
@@ -314,17 +314,17 @@ function onCommand(cmd: string) {
 .app-header__user-name {
   font-size: var(--hr-font-size-sm);
   font-weight: var(--hr-font-weight-medium);
-  color: var(--hr-color-text-primary);
+  color: var(--hr-color-topbar-text);
 }
 
 .app-header__user-role {
   font-size: var(--hr-font-size-xs);
-  color: var(--hr-color-text-hint);
+  color: var(--hr-color-topbar-text-hint);
 }
 
 .app-header__caret {
   font-size: 12px;
-  color: var(--hr-color-text-hint);
+  color: var(--hr-color-topbar-text-hint);
 }
 
 /* ===== 主内容区 ===== */
