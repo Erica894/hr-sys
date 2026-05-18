@@ -29,91 +29,68 @@ withDefaults(
 </script>
 
 <style scoped>
+/* Workday-style: 白底 + 顶部 3px 色条 + 大轻字重数字 */
 .stat-card {
+  position: relative;
   background: var(--hr-color-bg-surface);
   border: 1px solid var(--hr-color-border-light);
   border-radius: var(--hr-radius-xl);
-  padding: var(--hr-space-5) var(--hr-space-5);
-  box-shadow: var(--hr-shadow-card);
+  padding: 24px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
   display: flex;
   flex-direction: column;
   gap: var(--hr-space-2);
   min-width: 0;
+  overflow: hidden;
   transition: box-shadow var(--hr-transition-fast),
-    border-color var(--hr-transition-fast),
-    transform var(--hr-transition-fast);
+    border-color var(--hr-transition-fast);
+}
+.stat-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--hr-color-border);
 }
 .stat-card:hover {
   border-color: var(--hr-color-border-strong);
-  box-shadow: var(--hr-shadow-elevated);
-  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 .stat-card__label {
-  font-size: var(--hr-font-size-sm);
+  font-size: 12px;
+  font-weight: var(--hr-font-weight-medium);
   color: var(--hr-color-text-regular);
+  letter-spacing: 0.3px;
   line-height: var(--hr-line-height-tight);
 }
 .stat-card__value {
   display: flex;
   align-items: baseline;
   gap: var(--hr-space-2);
+  margin-top: 4px;
 }
 .stat-card__value-main {
-  font-size: var(--hr-font-size-3xl);
-  font-weight: var(--hr-font-weight-semibold);
+  font-size: 36px;
+  font-weight: 400;
   color: var(--hr-color-text-primary);
-  line-height: var(--hr-line-height-tight);
+  line-height: 1.1;
+  letter-spacing: -0.5px;
 }
 .stat-card__value-unit {
-  font-size: var(--hr-font-size-sm);
+  font-size: 13px;
   color: var(--hr-color-text-regular);
 }
 .stat-card__footer {
-  font-size: var(--hr-font-size-xs);
+  font-size: 12px;
   color: var(--hr-color-text-hint);
+  margin-top: 2px;
 }
 
-/* Workday 渐变 KPI: 4 个 tone 各对应一个色系 */
-.stat-card--brand,
-.stat-card--success,
-.stat-card--warning,
-.stat-card--danger {
-  border: none;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
-}
-.stat-card--brand:hover,
-.stat-card--success:hover,
-.stat-card--warning:hover,
-.stat-card--danger:hover {
-  border-color: transparent;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
-}
-.stat-card--brand   { background: var(--hr-gradient-kpi-blue); }
-.stat-card--success { background: var(--hr-gradient-kpi-green); }
-.stat-card--warning { background: var(--hr-gradient-kpi-orange); }
-.stat-card--danger  { background: var(--hr-gradient-kpi-red); }
-
-.stat-card--brand .stat-card__label,
-.stat-card--success .stat-card__label,
-.stat-card--warning .stat-card__label,
-.stat-card--danger .stat-card__label {
-  color: rgba(255, 255, 255, 0.82);
-}
-.stat-card--brand .stat-card__value-main,
-.stat-card--success .stat-card__value-main,
-.stat-card--warning .stat-card__value-main,
-.stat-card--danger .stat-card__value-main {
-  color: #fff;
-}
-.stat-card--brand .stat-card__value-unit,
-.stat-card--success .stat-card__value-unit,
-.stat-card--warning .stat-card__value-unit,
-.stat-card--danger .stat-card__value-unit,
-.stat-card--brand .stat-card__footer,
-.stat-card--success .stat-card__footer,
-.stat-card--warning .stat-card__footer,
-.stat-card--danger .stat-card__footer {
-  color: rgba(255, 255, 255, 0.78);
-}
+/* tone 只决定顶部色条颜色,卡片本体保持白净 */
+.stat-card--brand::before   { background: var(--hr-color-brand); }
+.stat-card--success::before { background: #1f7a4a; }
+.stat-card--warning::before { background: #c5832a; }
+.stat-card--danger::before  { background: #c53b50; }
 </style>

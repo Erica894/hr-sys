@@ -184,11 +184,13 @@ p {
 
 /* ===== Element Plus 局部样式微调 ===== */
 
-/* 表格表头 (Workday: 浅蓝品牌底 + 深蓝字) */
+/* 表格表头 (Workday: 中性浅灰 + 灰字 + 紧字距) */
 .el-table th.el-table__cell {
-  background: var(--hr-color-brand-light) !important;
-  color: var(--hr-color-brand) !important;
+  background: #f7f9fc !important;
+  color: var(--hr-color-text-regular) !important;
   font-weight: var(--hr-font-weight-semibold);
+  font-size: 12px;
+  letter-spacing: 0.3px;
 }
 
 .el-table .el-table__cell {
@@ -200,6 +202,24 @@ p {
   border-radius: var(--hr-radius-xl) !important;
   box-shadow: var(--hr-shadow-elevated) !important;
   border-color: var(--hr-color-border-light) !important;
+}
+
+/* el-alert info: Workday 浅灰蓝信息条,左侧品牌色边框 */
+.el-alert.el-alert--info.is-light {
+  background-color: #f0f4fa !important;
+  border: 1px solid var(--hr-color-border-light) !important;
+  border-left: 3px solid var(--hr-color-brand) !important;
+  border-radius: var(--hr-radius-lg) !important;
+  padding: 12px 16px !important;
+}
+.el-alert.el-alert--info.is-light .el-alert__title,
+.el-alert.el-alert--info.is-light .el-alert__content > p {
+  color: var(--hr-color-text-primary) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+.el-alert.el-alert--info.is-light .el-alert__icon {
+  color: var(--hr-color-brand) !important;
 }
 
 /* 主按钮 (Workday hover) */
