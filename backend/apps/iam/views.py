@@ -8,6 +8,20 @@ from .serializers import LoginSerializer, MFAVerifySerializer
 from .services import generate_totp_secret, get_totp_uri, verify_totp
 
 
+class MyLanguageView(APIView):
+    """PATCH /api/auth/me/language/ — persist user's preferred UI language."""
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        lang = request.data.get("preferred_language")
+        if lang not in ("zh", "en"):
+            return Response({"detail": "preferred_language must be 'zh' or 'en'"},
+                            status=status.HTTP_400_BAD_REQUEST)
+        request.user.preferred_language = lang
+        request.user.save(update_fields=["preferred_language"])
+        return Response({"preferred_language": lang})
+
+
 class OrgUnitListView(APIView):
     """简单 OrgUnit 列表，供 FE 下发对话框选目标。
 

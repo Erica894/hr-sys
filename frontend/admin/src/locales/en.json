@@ -1,0 +1,43 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  },
+  "header": {
+    "brand": "HR-Sys",
+    "menu": {
+      "my_compensation": "My Compensation",
+      "logout": "Sign Out"
+    },
+    "user_role": {
+      "HR_ADMIN": "HR Admin",
+      "DEPT_HEAD": "Dept. Head",
+      "CENTER_HEAD": "Center Head",
+      "EMPLOYEE": "Employee"
+    }
+  },
+  "login": {
+    "brand_title": "HR-Sys",
+    "brand_sub": "Compensation Management",
+    "heading_normal": "Sign In",
+    "heading_mfa": "Two-Factor Verification",
+    "sub_normal": "Enter your account credentials",
+    "sub_mfa": "Enter the 6-digit code from your authenticator",
+    "field_email": "Email",
+    "field_password": "Password",
+    "field_otp": "Code",
+    "ph_email": "Enter email",
+    "ph_password": "Enter password",
+    "ph_otp": "6-digit code",
+    "submit_login": "Sign In",
+    "submit_mfa": "Verify",
+    "err_default_login": "Sign-in failed. Please check email and password.",
+    "err_default_mfa": "Incorrect code. Please try again.",
+    "footer": "© HR-Sys · Enterprise Compensation"
+  }
+}

@@ -86,31 +86,34 @@
         <el-header class="app-header">
           <div v-if="!hasManagementMenu" class="app-header__brand">
             <span class="app-sidebar__brand-mark">HR</span>
-            <span>薪酬管理系统</span>
+            <span>{{ t("header.brand") }}</span>
           </div>
           <div v-else />
-          <el-dropdown trigger="click" @command="onCommand">
-            <span class="app-header__user">
-              <el-avatar :size="32" class="app-header__avatar">
-                {{ avatarText }}
-              </el-avatar>
-              <span class="app-header__user-meta">
-                <span class="app-header__user-name">{{ userName }}</span>
-                <span class="app-header__user-role">{{ roleLabel }}</span>
+          <div class="app-header__right">
+            <LangSwitcher />
+            <el-dropdown trigger="click" @command="onCommand">
+              <span class="app-header__user">
+                <el-avatar :size="32" class="app-header__avatar">
+                  {{ avatarText }}
+                </el-avatar>
+                <span class="app-header__user-meta">
+                  <span class="app-header__user-name">{{ userName }}</span>
+                  <span class="app-header__user-role">{{ roleLabel }}</span>
+                </span>
+                <el-icon class="app-header__caret"><CaretBottom /></el-icon>
               </span>
-              <el-icon class="app-header__caret"><CaretBottom /></el-icon>
-            </span>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="me">
-                  <el-icon><User /></el-icon>我的薪酬
-                </el-dropdown-item>
-                <el-dropdown-item command="logout" divided>
-                  <el-icon><SwitchButton /></el-icon>退出登录
-                </el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="me">
+                    <el-icon><User /></el-icon>{{ t("header.menu.my_compensation") }}
+                  </el-dropdown-item>
+                  <el-dropdown-item command="logout" divided>
+                    <el-icon><SwitchButton /></el-icon>{{ t("header.menu.logout") }}
+                  </el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </div>
         </el-header>
         <el-main class="app-main">
           <router-view />
@@ -128,8 +131,10 @@
 
 <script setup lang="ts">
 import { computed } from "vue"
+import { useI18n } from "vue-i18n"
 import { useRoute, useRouter } from "vue-router"
 import { useAuth } from "@/stores/auth"
+import LangSwitcher from "@/components/LangSwitcher.vue"
 import {
   CaretBottom,
   CircleCheck,
@@ -145,6 +150,7 @@ import {
   Wallet,
 } from "@element-plus/icons-vue"
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuth()
@@ -156,13 +162,13 @@ const isCenterHead = computed(() => auth.hasRole("CENTER_HEAD"))
 const hasManagementMenu = computed(() => isAdmin.value || isDeptHead.value || isCenterHead.value)
 const roleLabel = computed(() => {
   const labels: string[] = []
-  if (isAdmin.value) labels.push("HR 管理员")
-  if (isDeptHead.value) labels.push("部门负责人")
-  if (isCenterHead.value) labels.push("中心负责人")
-  if (!labels.length && auth.roles.length) labels.push("员工")
+  if (isAdmin.value) labels.push(t("header.user_role.HR_ADMIN"))
+  if (isDeptHead.value) labels.push(t("header.user_role.DEPT_HEAD"))
+  if (isCenterHead.value) labels.push(t("header.user_role.CENTER_HEAD"))
+  if (!labels.length && auth.roles.length) labels.push(t("header.user_role.EMPLOYEE"))
   return labels.join(" / ")
 })
-const userName = computed(() => auth.user?.email?.split("@")[0] || "未登录")
+const userName = computed(() => auth.user?.email?.split("@")[0] || "—")
 const avatarText = computed(() => userName.value.charAt(0).toUpperCase() || "U")
 
 function onCommand(cmd: string) {
@@ -282,6 +288,12 @@ function onCommand(cmd: string) {
   font-weight: var(--hr-font-weight-semibold);
   font-size: var(--hr-font-size-md);
   color: var(--hr-color-topbar-text);
+}
+
+.app-header__right {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hr-space-2);
 }
 
 .app-header__user {

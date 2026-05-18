@@ -5,6 +5,8 @@ const api = axios.create({ baseURL: "/api", timeout: 10000 })
 api.interceptors.request.use((cfg) => {
   const t = localStorage.getItem("access")
   if (t) cfg.headers.Authorization = `Bearer ${t}`
+  const locale = localStorage.getItem("hr-sys.locale")
+  cfg.headers["Accept-Language"] = locale === "en" ? "en" : "zh-hans"
   return cfg
 })
 

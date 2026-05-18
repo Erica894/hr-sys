@@ -1,0 +1,15 @@
+{
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "loading": "加载中"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  },
+  "header": {
+    "brand": "HR-Sys 员工门户",
+    "logout": "退出登录"
+  }
+}

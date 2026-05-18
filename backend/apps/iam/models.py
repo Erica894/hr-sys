@@ -15,6 +15,11 @@ class User(AbstractBaseUser, PermissionsMixin):
     totp_secret = models.CharField(max_length=64, blank=True)
     is_staff = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
+    preferred_language = models.CharField(
+        max_length=5,
+        choices=[("zh", "中文"), ("en", "English")],
+        default="zh",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     objects = UserManager()

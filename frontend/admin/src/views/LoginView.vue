@@ -1,24 +1,21 @@
 <template>
   <div class="login-page">
     <div class="login-page__bg" />
+    <div class="login-page__lang">
+      <LangSwitcher />
+    </div>
     <div class="login-card">
       <div class="login-card__brand">
         <div class="login-card__brand-mark">HR</div>
         <div class="login-card__brand-text">
-          <div class="login-card__brand-title">HR-Sys</div>
-          <div class="login-card__brand-sub">企业薪酬管理系统</div>
+          <div class="login-card__brand-title">{{ t("login.brand_title") }}</div>
+          <div class="login-card__brand-sub">{{ t("login.brand_sub") }}</div>
         </div>
       </div>
 
       <div class="login-card__heading">
-        <h1>{{ store.needsMfa ? "二次验证" : "欢迎登录" }}</h1>
-        <p>
-          {{
-            store.needsMfa
-              ? "请输入您的 6 位动态验证码"
-              : "使用您的工作邮箱继续"
-          }}
-        </p>
+        <h1>{{ store.needsMfa ? t("login.heading_mfa") : t("login.heading_normal") }}</h1>
+        <p>{{ store.needsMfa ? t("login.sub_mfa") : t("login.sub_normal") }}</p>
       </div>
 
       <el-form
@@ -28,20 +25,20 @@
         class="login-form"
         @submit.prevent="doLogin"
       >
-        <el-form-item label="邮箱">
+        <el-form-item :label="t('login.field_email')">
           <el-input
             v-model="email"
             autocomplete="username"
-            placeholder="name@company.com"
+            :placeholder="t('login.ph_email')"
             :prefix-icon="Message"
           />
         </el-form-item>
-        <el-form-item label="密码">
+        <el-form-item :label="t('login.field_password')">
           <el-input
             v-model="pw"
             type="password"
             autocomplete="current-password"
-            placeholder="请输入密码"
+            :placeholder="t('login.ph_password')"
             :prefix-icon="Lock"
             show-password
           />
@@ -53,7 +50,7 @@
           class="login-form__submit"
           @click="doLogin"
         >
-          登 录
+          {{ t("login.submit_login") }}
         </el-button>
       </el-form>
 
@@ -63,10 +60,10 @@
         class="login-form"
         @submit.prevent="doMfa"
       >
-        <el-form-item label="动态验证码">
+        <el-form-item :label="t('login.field_otp')">
           <el-input
             v-model="code"
-            placeholder="6 位验证码"
+            :placeholder="t('login.ph_otp')"
             :prefix-icon="Key"
             maxlength="6"
           />
@@ -78,7 +75,7 @@
           class="login-form__submit"
           @click="doMfa"
         >
-          验 证
+          {{ t("login.submit_mfa") }}
         </el-button>
       </el-form>
 
@@ -92,7 +89,7 @@
       />
 
       <div class="login-card__footer">
-        © {{ year }} HR-Sys · 内部薪酬管理系统
+        {{ t("login.footer") }} · {{ year }}
       </div>
     </div>
   </div>
@@ -100,10 +97,13 @@
 
 <script setup lang="ts">
 import { computed, reactive, ref } from "vue"
+import { useI18n } from "vue-i18n"
 import { useAuth } from "@/stores/auth"
 import { useRouter } from "vue-router"
 import { Key, Lock, Message } from "@element-plus/icons-vue"
+import LangSwitcher from "@/components/LangSwitcher.vue"
 
+const { t } = useI18n()
 const store = useAuth()
 const router = useRouter()
 const email = ref("")
@@ -127,7 +127,7 @@ async function doLogin() {
     await store.login(email.value, pw.value)
     if (!store.needsMfa) router.push(landingFor())
   } catch (e: any) {
-    err.value = e.response?.data?.detail || "登录失败，请检查邮箱和密码"
+    err.value = e.response?.data?.detail || t("login.err_default_login")
   } finally {
     loading.value = false
   }
@@ -140,7 +140,7 @@ async function doMfa() {
     await store.verifyMfa(code.value)
     router.push(landingFor())
   } catch (e: any) {
-    err.value = e.response?.data?.detail || "验证码错误，请重试"
+    err.value = e.response?.data?.detail || t("login.err_default_mfa")
   } finally {
     loading.value = false
   }
@@ -166,6 +166,22 @@ async function doMfa() {
     radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.08) 0%, transparent 50%),
     radial-gradient(circle at 80% 80%, rgba(255, 255, 255, 0.06) 0%, transparent 50%);
   pointer-events: none;
+}
+
+.login-page__lang {
+  position: absolute;
+  top: var(--hr-space-5);
+  right: var(--hr-space-6);
+  z-index: 2;
+}
+.login-page__lang :deep(.lang-switcher) {
+  color: rgba(255, 255, 255, 0.92);
+}
+.login-page__lang :deep(.lang-switcher:hover) {
+  background: rgba(255, 255, 255, 0.12);
+}
+.login-page__lang :deep(.lang-switcher__caret) {
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .login-card {

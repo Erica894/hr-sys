@@ -1,0 +1,43 @@
+{
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "loading": "加载中"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  },
+  "header": {
+    "brand": "HR-Sys",
+    "menu": {
+      "my_compensation": "我的薪酬",
+      "logout": "退出登录"
+    },
+    "user_role": {
+      "HR_ADMIN": "HR 管理员",
+      "DEPT_HEAD": "部门负责人",
+      "CENTER_HEAD": "中心负责人",
+      "EMPLOYEE": "员工"
+    }
+  },
+  "login": {
+    "brand_title": "HR-Sys",
+    "brand_sub": "企业薪酬管理系统",
+    "heading_normal": "欢迎登录",
+    "heading_mfa": "二次验证",
+    "sub_normal": "请输入您的账号信息",
+    "sub_mfa": "请输入身份验证器中的 6 位验证码",
+    "field_email": "邮箱",
+    "field_password": "密码",
+    "field_otp": "验证码",
+    "ph_email": "请输入邮箱",
+    "ph_password": "请输入密码",
+    "ph_otp": "6 位数字验证码",
+    "submit_login": "登 录",
+    "submit_mfa": "验 证",
+    "err_default_login": "登录失败,请检查邮箱和密码",
+    "err_default_mfa": "验证码错误,请重新输入",
+    "footer": "© HR-Sys · 企业级薪酬激励管理"
+  }
+}

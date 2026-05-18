@@ -42,6 +42,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.iam.middleware.LanguageMiddleware",
     "apps.audit.middleware.AuditMiddleware",
 ]
 
@@ -104,5 +105,7 @@ CORS_ALLOW_CREDENTIALS = True
 STATIC_URL = "/static/"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LANGUAGE_CODE = "zh-hans"
+LANGUAGES = [("zh-hans", "中文"), ("en", "English")]
+USE_I18N = True
 TIME_ZONE = "Asia/Shanghai"
 USE_TZ = True

@@ -1,0 +1,15 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading"
+  },
+  "lang": {
+    "zh": "中文",
+    "en": "English"
+  },
+  "header": {
+    "brand": "HR-Sys Employee Portal",
+    "logout": "Sign Out"
+  }
+}
