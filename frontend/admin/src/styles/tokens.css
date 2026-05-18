@@ -34,10 +34,10 @@
   --hr-color-danger-light:   #fee2e2;
   --hr-color-info:           #6b7280;
 
-  /* 侧边栏专用 (Workday navy) */
-  --hr-color-sidebar-bg:        #0f2a52;
-  --hr-color-sidebar-bg-hover:  #163563;
-  --hr-color-sidebar-bg-active: #08193d;
+  /* 侧边栏 (与顶栏同色统一) */
+  --hr-color-sidebar-bg:        #1d4380;
+  --hr-color-sidebar-bg-hover:  #2a5295;
+  --hr-color-sidebar-bg-active: #163563;
   --hr-color-sidebar-text:      #c7d3e8;
   --hr-color-sidebar-text-active: #ffffff;
   --hr-color-sidebar-accent:    #4f8eff;
