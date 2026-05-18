@@ -98,7 +98,7 @@ p {
   flex-shrink: 0;
 }
 
-/* 筛选 / 操作工具栏 */
+/* 筛选 / 操作工具栏 (Workday) */
 .hr-toolbar {
   display: flex;
   flex-wrap: wrap;
@@ -107,8 +107,9 @@ p {
   padding: var(--hr-space-3) var(--hr-space-4);
   background: var(--hr-color-bg-surface);
   border: 1px solid var(--hr-color-border-light);
-  border-radius: var(--hr-radius-md);
+  border-radius: var(--hr-radius-xl);
   margin-bottom: var(--hr-space-4);
+  box-shadow: var(--hr-shadow-card);
 }
 
 .hr-toolbar--plain {
@@ -121,14 +122,14 @@ p {
   flex: 1;
 }
 
-/* 次级区块 */
+/* 次级区块 (Workday card) */
 .hr-section {
   background: var(--hr-color-bg-surface);
   border: 1px solid var(--hr-color-border-light);
-  border-radius: var(--hr-radius-md);
+  border-radius: var(--hr-radius-xl);
   padding: var(--hr-space-5);
   margin-bottom: var(--hr-space-4);
-  box-shadow: var(--hr-shadow-card);
+  box-shadow: var(--hr-shadow-elevated);
 }
 
 .hr-section--flush {
@@ -183,10 +184,10 @@ p {
 
 /* ===== Element Plus 局部样式微调 ===== */
 
-/* 表格紧凑表头 */
+/* 表格表头 (Workday: 浅蓝品牌底 + 深蓝字) */
 .el-table th.el-table__cell {
-  background: var(--hr-color-bg-subtle) !important;
-  color: var(--hr-color-text-secondary);
+  background: var(--hr-color-brand-light) !important;
+  color: var(--hr-color-brand) !important;
   font-weight: var(--hr-font-weight-semibold);
 }
 
@@ -194,12 +195,27 @@ p {
   padding: var(--hr-space-2) 0;
 }
 
-/* 卡片默认 shadow 更轻 */
+/* 卡片 (Workday: 12px 圆角 + 中等阴影) */
 .el-card {
-  box-shadow: var(--hr-shadow-card);
+  border-radius: var(--hr-radius-xl) !important;
+  box-shadow: var(--hr-shadow-elevated) !important;
+  border-color: var(--hr-color-border-light) !important;
 }
 
-/* 按钮微调 */
+/* 主按钮 (Workday hover) */
 .el-button--primary {
   font-weight: var(--hr-font-weight-medium);
+  transition: background var(--hr-transition-fast),
+    box-shadow var(--hr-transition-fast),
+    transform var(--hr-transition-fast);
+}
+
+.el-button--primary:hover {
+  box-shadow: 0 4px 12px rgba(29, 67, 128, 0.28);
+  transform: translateY(-1px);
+}
+
+.el-button--primary:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 4px rgba(29, 67, 128, 0.18);
 }
