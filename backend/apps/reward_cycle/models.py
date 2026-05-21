@@ -15,6 +15,10 @@ class RewardCycle(models.Model):
         "lti.LTIPlan", null=True, blank=True,
         on_delete=models.SET_NULL, related_name="reward_cycle_link",
     )
+    linked_bonus_plan = models.OneToOneField(
+        "bonus_pool.BonusPlan", null=True, blank=True,
+        on_delete=models.SET_NULL, related_name="reward_cycle_link",
+    )
     total_comp_config = models.JSONField(default=dict)
     category_scheme = models.ForeignKey(
         "hr_master.CategoryScheme", null=True, blank=True,
