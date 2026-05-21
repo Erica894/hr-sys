@@ -51,6 +51,16 @@
               <el-icon><Histogram /></el-icon>
               <template #title>薪酬区间</template>
             </el-menu-item>
+            <el-sub-menu index="admin-analytics">
+              <template #title>
+                <el-icon><TrendCharts /></el-icon>
+                <span>分析</span>
+              </template>
+              <el-menu-item index="/admin/analytics/overview">薪酬总览</el-menu-item>
+              <el-menu-item index="/admin/analytics/by-dept">部门对比</el-menu-item>
+              <el-menu-item index="/admin/analytics/distribution">桶分布</el-menu-item>
+              <el-menu-item index="/admin/analytics/employee-timeline">员工时间线</el-menu-item>
+            </el-sub-menu>
             <el-sub-menu index="admin-approval">
               <template #title>
                 <el-icon><CircleCheck /></el-icon>
@@ -147,6 +157,7 @@ import {
   OfficeBuilding,
   PieChart,
   SwitchButton,
+  TrendCharts,
   User,
   Wallet,
 } from "@element-plus/icons-vue"

@@ -126,6 +126,28 @@ const routes = [
     meta: { requiresAdmin: true },
   },
 
+  // HR_ADMIN: 分析
+  {
+    path: "/admin/analytics/overview",
+    component: () => import("@/views/analytics/AnalyticsOverviewView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/analytics/by-dept",
+    component: () => import("@/views/analytics/AnalyticsByDeptView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/analytics/distribution",
+    component: () => import("@/views/analytics/AnalyticsDistributionView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/analytics/employee-timeline",
+    component: () => import("@/views/analytics/EmployeeTimelineView.vue"),
+    meta: { requiresAdmin: true },
+  },
+
   // HR_ADMIN: 其他
   {
     path: "/admin/org",
