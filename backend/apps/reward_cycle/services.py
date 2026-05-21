@@ -5,6 +5,9 @@ from apps.hr_master.models import Employee, PerformanceRating
 from apps.compensation_plan.models import AdjustmentPlan, AdjustmentProposal
 from apps.lti.models import LTIPlan, LTIGrant
 from apps.reward_cycle.models import RewardCycle
+from apps.bonus_pool.models import (
+    BonusPlan, BonusProposal, RegionalBonusRule, BonusCategoryFactor,
+)
 
 
 PROMOTION_PCT_BY_TARGET = {"P2": "0.15", "P3": "0.12", "P4": "0.10", "P5": "0.10",
@@ -40,31 +43,70 @@ def _budget_year(cycle: RewardCycle):
 
 
 @transaction.atomic
-def generate_proposals(cycle: RewardCycle, adj_plan: AdjustmentPlan, lti_plan: LTIPlan):
-    """Create one AdjustmentProposal per in-scope employee; LTIGrant for eligible."""
-    for emp in Employee.objects.filter(status="ACTIVE"):
-        AdjustmentProposal.objects.get_or_create(
-            plan=adj_plan, employee=emp,
-            defaults={
-                "annual_suggested_pct": _annual_suggested_pct(emp) if emp.participates_annual_adjustment else Decimal("0"),
-                "annual_manager_delta_pct": Decimal("0"),
-                "promotion_adjustment_pct": _promotion_pct(emp),
-                "current_salary": _latest_monthly_salary(emp),
-                "current_job_level_snapshot": emp.job_level_current,
-                "job_level_promoted_snapshot": emp.job_level_promoted,
-                "employee_category_1_snapshot": emp.employee_category_1,
-                "participates_annual_snapshot": emp.participates_annual_adjustment,
-            },
-        )
-        LTIGrant.objects.get_or_create(
-            plan=lti_plan, employee=emp,
-            defaults={
-                "granted_ads": 0,
-                "unit_price_at_grant": lti_plan.unit_price_at_grant,
-                "employee_category_1_snapshot": emp.employee_category_1,
-                "stock_code": lti_plan.stock_code,
-            },
-        )
+def generate_proposals(
+    cycle: RewardCycle,
+    adj_plan: AdjustmentPlan | None,
+    lti_plan: LTIPlan | None,
+    bonus_plan: BonusPlan | None = None,
+):
+    """Create one AdjustmentProposal / LTIGrant / BonusProposal per in-scope employee.
+
+    每个 plan 参数可独立为 None；只为传入的 plan 生成对应记录。
+    """
+    if bonus_plan is not None:
+        rules_by = {
+            r.country: r.base_months
+            for r in RegionalBonusRule.objects.filter(reward_cycle=cycle)
+        }
+        factors_by = {
+            f.employee_category_1: f.factor
+            for f in BonusCategoryFactor.objects.filter(reward_cycle=cycle)
+        }
+    else:
+        rules_by, factors_by = {}, {}
+
+    for emp in Employee.objects.filter(status="ACTIVE").select_related("legal_entity"):
+        if adj_plan is not None:
+            AdjustmentProposal.objects.get_or_create(
+                plan=adj_plan, employee=emp,
+                defaults={
+                    "annual_suggested_pct": _annual_suggested_pct(emp) if emp.participates_annual_adjustment else Decimal("0"),
+                    "annual_manager_delta_pct": Decimal("0"),
+                    "promotion_adjustment_pct": _promotion_pct(emp),
+                    "current_salary": _latest_monthly_salary(emp),
+                    "current_job_level_snapshot": emp.job_level_current,
+                    "job_level_promoted_snapshot": emp.job_level_promoted,
+                    "employee_category_1_snapshot": emp.employee_category_1,
+                    "participates_annual_snapshot": emp.participates_annual_adjustment,
+                },
+            )
+        if lti_plan is not None:
+            LTIGrant.objects.get_or_create(
+                plan=lti_plan, employee=emp,
+                defaults={
+                    "granted_ads": 0,
+                    "unit_price_at_grant": lti_plan.unit_price_at_grant,
+                    "employee_category_1_snapshot": emp.employee_category_1,
+                    "stock_code": lti_plan.stock_code,
+                },
+            )
+        if bonus_plan is not None:
+            salary = _latest_monthly_salary(emp)
+            country = emp.legal_entity.country if emp.legal_entity else ""
+            cat1 = emp.employee_category_1 or "STAFF"
+            base_months = rules_by.get(country, Decimal("0"))
+            factor = factors_by.get(cat1, Decimal("1"))
+            suggested = (salary * base_months * factor).quantize(Decimal("0.01"))
+            BonusProposal.objects.get_or_create(
+                plan=bonus_plan, employee=emp,
+                defaults={
+                    "suggested_amount_cny": suggested,
+                    "manager_delta_amount_cny": Decimal("0"),
+                    "employee_category_1_snapshot": cat1,
+                    "country_snapshot": country,
+                    "monthly_salary_snapshot": salary,
+                },
+            )
 
 
 def _load_perf_y_minus_1(cycle: RewardCycle):

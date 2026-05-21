@@ -145,3 +145,6 @@ class SaveProposalsItemSerializer(serializers.Serializer):
     employee_id = serializers.IntegerField()
     annual_manager_delta_pct = serializers.DecimalField(max_digits=6, decimal_places=4, required=False)
     granted_ads = serializers.IntegerField(required=False, min_value=0)
+    bonus_manager_delta_amount_cny = serializers.DecimalField(
+        max_digits=14, decimal_places=2, required=False,
+    )

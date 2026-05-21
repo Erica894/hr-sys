@@ -196,3 +196,90 @@ def check_lti_cap(cycle, items: Iterable[dict]):
                 })
 
     return violations
+
+
+def _index_target_budgets_bonus(cycle):
+    from apps.bonus_pool.models import BonusBudgetCell
+    out: dict[tuple[int, str], Decimal] = {}
+    for c in BonusBudgetCell.objects.filter(reward_cycle=cycle, target_org_unit__isnull=False):
+        out[(c.target_org_unit_id, c.employee_category_1)] = c.budget_amount_cny
+    return out
+
+
+def _index_company_budgets_bonus(cycle):
+    from apps.bonus_pool.models import BonusBudgetCell
+    out: dict[str, Decimal] = {}
+    for c in BonusBudgetCell.objects.filter(reward_cycle=cycle, target_org_unit__isnull=True):
+        out[c.employee_category_1] = c.budget_amount_cny
+    return out
+
+
+def check_bonus_cap(cycle, items: Iterable[dict]):
+    """年终奖 manager_delta_amount_cny dry-run cap check.
+
+    items 形如 [{"employee_id": int, "bonus_manager_delta_amount_cny": Decimal}]。
+    """
+    from apps.bonus_pool.models import BonusProposal
+
+    plan = getattr(cycle, "linked_bonus_plan", None)
+    if plan is None:
+        return []
+
+    overrides = {
+        int(it["employee_id"]): Decimal(str(it["bonus_manager_delta_amount_cny"]))
+        for it in items
+        if "bonus_manager_delta_amount_cny" in it and it.get("employee_id") is not None
+    }
+
+    proposals = list(BonusProposal.objects.filter(plan=plan).select_related("employee"))
+
+    target_budgets = _index_target_budgets_bonus(cycle)
+
+    target_ids_by_cat: dict[str, set[int]] = defaultdict(set)
+    for (ou_id, cat) in target_budgets:
+        target_ids_by_cat[cat].add(ou_id)
+
+    sums: dict[tuple[int, str], Decimal] = defaultdict(lambda: Decimal("0"))
+    company_sums: dict[str, Decimal] = defaultdict(lambda: Decimal("0"))
+
+    for p in proposals:
+        cat = p.employee_category_1_snapshot
+        delta = overrides.get(p.employee_id, p.manager_delta_amount_cny)
+        amount = (p.suggested_amount_cny or Decimal("0")) + Decimal(delta or 0)
+        if amount <= 0:
+            continue
+        tids = target_ids_by_cat.get(cat, set())
+        if tids:
+            ou = resolve_owning_target(p.employee, tids)
+            if ou is not None:
+                sums[(ou, cat)] += Decimal(amount)
+        else:
+            company_sums[cat] += Decimal(amount)
+
+    violations = []
+    for (ou_id, cat), amt in sums.items():
+        budget = target_budgets.get((ou_id, cat), Decimal("0"))
+        if amt > budget:
+            violations.append({
+                "level": "TARGET",
+                "target_org_unit_id": ou_id,
+                "subject": "BONUS",
+                "employee_category_1": cat,
+                "requested": str(amt.quantize(Decimal('0.01'))),
+                "budget": str(budget),
+            })
+
+    if company_sums:
+        company_budgets = _index_company_budgets_bonus(cycle)
+        for cat, amt in company_sums.items():
+            budget = company_budgets.get(cat, Decimal("0"))
+            if amt > budget:
+                violations.append({
+                    "level": "COMPANY",
+                    "subject": "BONUS",
+                    "employee_category_1": cat,
+                    "requested": str(amt.quantize(Decimal('0.01'))),
+                    "budget": str(budget),
+                })
+
+    return violations

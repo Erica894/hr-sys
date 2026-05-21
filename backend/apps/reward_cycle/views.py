@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from apps.reward_cycle.models import RewardCycle
 from apps.compensation_plan.models import AdjustmentProposal
 from apps.lti.models import LTIGrant
+from apps.bonus_pool.models import BonusProposal
 from apps.reward_cycle.services import get_allocation_rows, generate_proposals
 from apps.reward_cycle.serializers import (
     AllocationRowSerializer, SaveProposalsItemSerializer, RewardCycleSerializer,
@@ -27,9 +28,18 @@ class AllocationListView(APIView):
 
     def get(self, request, cycle_id):
         cycle = get_object_or_404(RewardCycle, pk=cycle_id)
-        if cycle.status == "DRAFT" and cycle.linked_adjustment_plan and cycle.linked_lti_plan:
+        if cycle.status == "DRAFT" and (
+            cycle.linked_adjustment_plan_id
+            or cycle.linked_lti_plan_id
+            or cycle.linked_bonus_plan_id
+        ):
             with transaction.atomic():
-                generate_proposals(cycle, cycle.linked_adjustment_plan, cycle.linked_lti_plan)
+                generate_proposals(
+                    cycle,
+                    cycle.linked_adjustment_plan,
+                    cycle.linked_lti_plan,
+                    getattr(cycle, "linked_bonus_plan", None),
+                )
         rows = get_allocation_rows(cycle)
         return Response({
             "cycle": RewardCycleSerializer(cycle).data,
@@ -48,10 +58,11 @@ class SaveProposalsView(APIView):
         items.is_valid(raise_exception=True)
 
         from apps.compensation_plan.services.cap_check import (
-            check_adjustment_cap, check_lti_cap,
+            check_adjustment_cap, check_lti_cap, check_bonus_cap,
         )
         violations = check_adjustment_cap(cycle, items.validated_data)
         violations += check_lti_cap(cycle, items.validated_data)
+        violations += check_bonus_cap(cycle, items.validated_data)
         if violations:
             return Response(
                 {"error": "BUDGET_EXCEEDED", "violations": violations},
@@ -70,6 +81,10 @@ class SaveProposalsView(APIView):
                 if grant:
                     grant.granted_ads = it["granted_ads"]
                     grant.save(update_fields=["granted_ads"])
+            if "bonus_manager_delta_amount_cny" in it and cycle.linked_bonus_plan_id:
+                BonusProposal.objects.filter(
+                    plan_id=cycle.linked_bonus_plan_id, employee_id=it["employee_id"]
+                ).update(manager_delta_amount_cny=it["bonus_manager_delta_amount_cny"])
         if cycle.status == "DRAFT":
             cycle.status = "ALLOCATING"
             cycle.save(update_fields=["status"])
