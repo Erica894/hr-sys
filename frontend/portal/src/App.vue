@@ -6,7 +6,7 @@
     >
       <span class="portal-header__brand">{{ t("header.brand") }}</span>
       <div class="portal-header__right">
-        <el-dropdown trigger="click" @command="onLang">
+        <el-dropdown v-if="I18N_PUBLIC" trigger="click" @command="onLang">
           <span class="portal-lang">
             {{ locale === "en" ? "EN" : "中" }}
           </span>
@@ -34,6 +34,7 @@ import { useAuth } from "@/stores/auth"
 import { useLocaleStore } from "@/stores/locale"
 import type { AppLocale } from "@/i18n"
 
+const I18N_PUBLIC = false
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()

@@ -1,7 +1,7 @@
 <template>
   <div class="login-page">
     <div class="login-page__bg" />
-    <div class="login-page__lang">
+    <div v-if="I18N_PUBLIC" class="login-page__lang">
       <LangSwitcher />
     </div>
     <div class="login-card">
@@ -103,6 +103,7 @@ import { useRouter } from "vue-router"
 import { Key, Lock, Message } from "@element-plus/icons-vue"
 import LangSwitcher from "@/components/LangSwitcher.vue"
 
+const I18N_PUBLIC = false
 const { t } = useI18n()
 const store = useAuth()
 const router = useRouter()

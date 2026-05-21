@@ -2,7 +2,7 @@
   <div class="hr-page">
     <PageHeader
       title="我的预算"
-      subtitle="部门 / 中心负责人查看本单元已下发的调薪与 RSU 额度"
+      subtitle="部门 / 中心负责人查看本单元已下发的调薪、RSU、年终奖额度"
     />
 
     <Toolbar>
@@ -168,18 +168,66 @@
           <template #label>
             <span class="my-budget-tabs__label">
               <el-icon><Present /></el-icon>年终奖
+              <el-tag v-if="bonus.length" size="small" type="info" effect="plain">
+                {{ bonus.length }}
+              </el-tag>
             </span>
           </template>
-          <ComingSoonCard
-            title="年终奖预算待开放"
-            expected="预计 v1.5 迭代"
-            description="年终奖全链路（BonusBudgetCell + Proposal + 执行）将在 v1.5 上线，复用现金调薪 / RSU 同一套二级分发引擎。"
-            :bullets="[
-              '部门 / 中心二级下发',
-              '与现金调薪 / RSU 共用 cap 校验',
-              '执行后自动回收剩余'
-            ]"
-          />
+          <el-table
+            :data="bonus"
+            stripe
+            v-loading="loadingBonus"
+          >
+            <el-table-column label="单元" min-width="180">
+              <template #default="{ row }">
+                <span class="my-budget-tabs__cell-name">
+                  <el-tag
+                    size="small"
+                    :type="row.target_org_unit_type === 'CENTER' ? 'warning' : 'primary'"
+                    effect="plain"
+                  >
+                    {{ row.target_org_unit_type === "CENTER" ? "中心" : "部门" }}
+                  </el-tag>
+                  {{ row.target_org_unit_name }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="员工类别" width="120">
+              <template #default="{ row }">{{ catLabel(row.employee_category_1) }}</template>
+            </el-table-column>
+            <el-table-column label="预算（CNY）" width="160" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtMoney(row.budget_amount_cny) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="已分配" width="140" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono">{{ fmtMoney(row.allocated_amount_cny) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="剩余" width="140" align="right">
+              <template #default="{ row }">
+                <span class="hr-text-mono hr-text-success">
+                  {{ fmtMoney(Number(row.budget_amount_cny) - Number(row.allocated_amount_cny || 0)) }}
+                </span>
+              </template>
+            </el-table-column>
+            <el-table-column label="使用率" min-width="180">
+              <template #default="{ row }">
+                <el-progress
+                  :percentage="pct(row.allocated_amount_cny, row.budget_amount_cny)"
+                  :stroke-width="6"
+                  :status="progressStatus(row.allocated_amount_cny, row.budget_amount_cny)"
+                />
+              </template>
+            </el-table-column>
+            <template #empty>
+              <EmptyHint
+                title="暂无可见年终奖预算"
+                description="尚未有年终奖预算下发到您管辖的单元"
+              />
+            </template>
+          </el-table>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -193,7 +241,6 @@ import api from "@/api/client"
 import PageHeader from "@/components/PageHeader.vue"
 import Toolbar from "@/components/Toolbar.vue"
 import EmptyHint from "@/components/EmptyHint.vue"
-import ComingSoonCard from "@/components/ComingSoonCard.vue"
 import { fmtInt, fmtMoney } from "@/utils/format"
 
 const cycles = ref<any[]>([])
@@ -201,8 +248,10 @@ const cycleId = ref<number | null>(null)
 const activeTab = ref("adj")
 const adj = ref<any[]>([])
 const lti = ref<any[]>([])
+const bonus = ref<any[]>([])
 const loadingAdj = ref(false)
 const loadingLti = ref(false)
+const loadingBonus = ref(false)
 
 function catLabel(c: string) {
   return c === "MANAGEMENT" ? "管理干部" : "员工"
@@ -248,8 +297,19 @@ async function loadLti() {
   }
 }
 
+async function loadBonus() {
+  if (!cycleId.value) return
+  loadingBonus.value = true
+  try {
+    const r = await api.get(`/budgets/my-bonus/?cycle_id=${cycleId.value}`)
+    bonus.value = r.data.targets || []
+  } finally {
+    loadingBonus.value = false
+  }
+}
+
 async function loadAll() {
-  await Promise.all([loadAdj(), loadLti()])
+  await Promise.all([loadAdj(), loadLti(), loadBonus()])
 }
 
 onMounted(async () => {

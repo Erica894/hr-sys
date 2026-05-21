@@ -88,6 +88,16 @@ const routes = [
     component: () => import("@/views/plans/BonusPlanListView.vue"),
     meta: { requiresAdmin: true },
   },
+  {
+    path: "/admin/plans/bonus/new",
+    component: () => import("@/views/plans/BonusPlanEditView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/plans/bonus/:id",
+    component: () => import("@/views/plans/BonusPlanEditView.vue"),
+    meta: { requiresAdmin: true },
+  },
 
   // HR_ADMIN: 预算管理
   {
@@ -98,6 +108,11 @@ const routes = [
   {
     path: "/admin/budgets/lti",
     component: () => import("@/views/budgets/LtiBudgetView.vue"),
+    meta: { requiresAdmin: true },
+  },
+  {
+    path: "/admin/budgets/bonus",
+    component: () => import("@/views/budgets/BonusBudgetView.vue"),
     meta: { requiresAdmin: true },
   },
   {

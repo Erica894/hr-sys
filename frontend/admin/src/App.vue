@@ -41,6 +41,7 @@
               </template>
               <el-menu-item index="/admin/budgets/my">我的预算</el-menu-item>
               <el-menu-item index="/admin/budgets/derived-overview">派生预算总览</el-menu-item>
+              <el-menu-item index="/admin/budgets/bonus">年终奖预算</el-menu-item>
             </el-sub-menu>
             <el-menu-item index="/admin/org">
               <el-icon><OfficeBuilding /></el-icon>
@@ -90,7 +91,7 @@
           </div>
           <div v-else />
           <div class="app-header__right">
-            <LangSwitcher />
+            <LangSwitcher v-if="I18N_PUBLIC" />
             <el-dropdown trigger="click" @command="onCommand">
               <span class="app-header__user">
                 <el-avatar :size="32" class="app-header__avatar">
@@ -150,6 +151,7 @@ import {
   Wallet,
 } from "@element-plus/icons-vue"
 
+const I18N_PUBLIC = false
 const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
